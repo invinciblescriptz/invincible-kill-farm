@@ -1,8 +1,12 @@
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
+-- Define the whitelist of Usernames
+local whitelistedUsers = {
+    "hebdjxhc", "Fischpro657",
+    "krxzy_214", "alexglover020", "LinusHL95321",
+}
 
-local window = library:AddWindow("Invincible Paid", {
-    main_color = Color3.fromRGB(50, 50, 50),
-    min_size = Vector2.new(520, 520),
+local window = library:AddWindow("Invincible Kill Farm", {
+    main_color = Color3.fromRGB(0, 0, 0), -- Changed to black
+    min_size = Vector2.new(200, 200), -- Reduced size for a smaller window
     can_resize = false,
     background_transparency = 1,
 })
@@ -167,4 +171,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+end)
+
+local window = window:Addtextbox("enjoy my auto kill"
 end)
