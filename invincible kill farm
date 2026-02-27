@@ -5,6 +5,9 @@ local window = library:AddWindow("Invincible Kill Farm", {
     background_transparency = 1,
 })
 
+local tab = window:AddTab("credits")
+tab:AddLabel("made by Invincible#0001")
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -19,7 +22,7 @@ if getgenv().AutoKillLoaded then return end
 getgenv().AutoKillLoaded = true
 
 local AUTO_SERVER_HOP = true
-local SERVER_HOP_INTERVAL = 15 -- seconds
+local SERVER_HOP_INTERVAL = 60
 local LastServerHop = os.clock()
 
 local function ServerHop()
