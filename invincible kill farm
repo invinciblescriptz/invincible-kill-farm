@@ -1,6 +1,6 @@
 -- Define the whitelist of Usernames
 local whitelistedUsers = {
-    "hebdjxhc", "Fischpro657",
+    "hebdjxhc",
     "krxzy_214", "alexglover020", "LinusHL95321",
 }
 
@@ -173,5 +173,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local window = window:Addtextbox("enjoy my auto kill"
-end)
+local Tab = window:AddTab("enjoy the auto kill")
