@@ -172,5 +172,3 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
-
-local Tab = window:AddTab("enjoy the auto kill")
