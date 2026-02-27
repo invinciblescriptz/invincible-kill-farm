@@ -1,6 +1,8 @@
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
+
 local window = library:AddWindow("Invincible Kill Farm", {
-    main_color = Color3.fromRGB(0, 0, 0), -- Changed to black
-    min_size = Vector2.new(200, 200), -- Reduced size for a smaller window
+    main_color = Color3.fromRGB(0, 0, 0), -- Black color
+    min_size = Vector2.new(200, 200), -- Small size
     can_resize = false,
     background_transparency = 1,
 })
@@ -32,9 +34,8 @@ local function ServerHop()
     local success, servers = pcall(function()
         return HttpService:JSONDecode(
             game:HttpGet(
-                "https://games.roblox.com/v1/games/"
-                .. PlaceId
-                .. "/servers/Public?sortOrder=Desc&limit=100"
+                "https://games.roblox.com/v1/games/"..
+                PlaceId.."/servers/Public?sortOrder=Desc&limit=100"
             )
         )
     end)
@@ -43,16 +44,8 @@ local function ServerHop()
 
     for _, server in ipairs(servers.data) do
         local filledPercent = server.playing / server.maxPlayers
-
-        if server.id ~= JobId
-        and server.playing >= 10          -- skip dead servers
-        and filledPercent >= 0.6          -- high population only
-        then
-            TeleportService:TeleportToPlaceInstance(
-                PlaceId,
-                server.id,
-                LocalPlayer
-            )
+        if server.id ~= JobId and server.playing >= 10 and filledPercent >= 0.6 then
+            TeleportService:TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
             return
         end
     end
@@ -128,6 +121,18 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
+-- Define firetouchinterest for use
+local function firetouchinterest(part1, part2, toggle)
+    -- This function is usually provided by exploit environments
+    -- If not, you need to implement or replace with your exploit's method
+    if type(firetouchinterest) == "function" then
+        firetouchinterest(part1, part2, toggle)
+    else
+        -- Example fallback if your exploit doesn't define it
+        -- You might need to remove this comment if your exploit provides firetouchinterest
+    end
+end
+
 RunService.RenderStepped:Connect(function()
     -- SERVER HOP
     if AUTO_SERVER_HOP and os.clock() - LastServerHop >= SERVER_HOP_INTERVAL then
@@ -149,8 +154,13 @@ RunService.RenderStepped:Connect(function()
         return
     end
 
-    Punch.attackTime.Value = 0
-    Punch:Activate()
+    -- Attack
+    if Punch and Punch:FindFirstChild("attackTime") then
+        Punch.attackTime.Value = 0
+    end
+    if Punch and Punch.Activate then
+        Punch:Activate()
+    end
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and ShouldKillPlayer(player) then
@@ -158,10 +168,10 @@ RunService.RenderStepped:Connect(function()
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             local head = char and char:FindFirstChild("Head")
             local root = char and char:FindFirstChild("HumanoidRootPart")
-
             if hum and head and root and hum.Health > 0 then
                 local wasAnchored = root.Anchored
                 root.Anchored = true
+                -- Use firetouchinterest
                 firetouchinterest(head, Hand, 0)
                 firetouchinterest(head, Hand, 1)
                 root.Anchored = wasAnchored
