@@ -253,5 +253,28 @@ task.spawn(function()
     GotoMuscleKingGym()
 end)
 
-print("Invincible Kill Farm LOADED | Auto-Punch Equip | Walk on Water | Muscle King Gym TP | Farm Active!")
-warn("High ban risk from kills - use private servers. Report firetouchinterest if patched.")
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local function onTouchedWater(hit)
+    if hit and hit.Name == "Water" then -- Make sure your water parts are named "Water"
+        humanoid.PlatformStand = true -- Allows walking on water
+        -- Optional: add visual or sound effects here
+    end
+end
+
+local function onTouchEndedWater(hit)
+    if hit and hit.Name == "Water" then
+        humanoid.PlatformStand = false -- Reset when leaving water
+    end
+end
+
+-- Connect touch events
+for _, part in pairs(workspace:GetChildren()) do
+    if part.Name == "Water" and part:IsA("BasePart") then
+        part.Touched:Connect(onTouchedWater)
+        part.TouchEnded:Connect(onTouchEndedWater)
+    end
+end
