@@ -1,4 +1,5 @@
--- Invincible Kill Farm - Fixed & Cleaned (Feb 2026)
+-- Invincible Kill Farm - Complete Fixed Script (Feb 28, 2026)
+-- Muscle Legends (PlaceId: 3623096087) | Auto-Kill | Server Hop | Auto Equip Punch | Walk on Water | Muscle King Gym TP
 
 local whitelistedUsers = {
     "hebdjxhc", "xntz_o", "VVSXOXlolkgg",
@@ -12,12 +13,19 @@ local TeleportService   = game:GetService("TeleportService")
 local HttpService       = game:GetService("HttpService")
 local LocalPlayer       = Players.LocalPlayer
 
+-- PlaceId check (Muscle Legends only)
+if game.PlaceId ~= 3623096087 then
+    LocalPlayer:Kick("This script is for Muscle Legends only! (PlaceId: 3623096087)")
+    return
+end
+
+-- Whitelist check
 if not table.find(whitelistedUsers, LocalPlayer.Name) then
     LocalPlayer:Kick("haha you thought you could use this script? think again nerd")
     return
 end
 
--- UI Library (if link dies, replace with working paste)
+-- UI Library
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
 local window = library:AddWindow("Invincible Kill Farm", {
     main_color = Color3.fromRGB(0, 0, 0),
@@ -35,11 +43,12 @@ getgenv().AutoKillLoaded = true
 
 -- Config
 local AUTO_SERVER_HOP    = true
-local SERVER_HOP_INTERVAL = 600    -- 10 min default (less aggressive = lower ban risk)
+local SERVER_HOP_INTERVAL = 600  -- 10 min
 local LastServerHop      = os.clock()
 local Running            = true
 local KillOnlyWeaker     = true
 local LastAttack         = 0
+local WalkOnWaterEnabled = true
 
 getgenv().WhitelistedPlayers    = getgenv().WhitelistedPlayers or {}
 getgenv().TempWhitelistStronger = getgenv().TempWhitelistStronger or {}
@@ -47,8 +56,12 @@ getgenv().TempWhitelistStronger = getgenv().TempWhitelistStronger or {}
 -- Helpers
 local function GetStat(plr, names)
     if type(names) == "string" then names = {names} end
-    for _, n in names do
-        local v = plr:GetAttribute(n) or (plr.leaderstats and plr.leaderstats:FindFirstChild(n) and plr.leaderstats[n].Value)
+    for _, n in ipairs(names) do
+        local v = plr:GetAttribute(n)
+        if v == nil and plr:FindFirstChild("leaderstats") then
+            local stat = plr.leaderstats:FindFirstChild(n)
+            if stat then v = stat.Value end
+        end
         if v then return tonumber(v) end
     end
     return 1
@@ -69,14 +82,15 @@ local function ShouldKill(targetPlayer)
 end
 
 -- Character refs
-local Character, Humanoid, Hand, Punch
+local Character, Humanoid, Hand, Punch, HRP
 
 local function UpdateRefs()
     Character = LocalPlayer.Character
     if not Character then return end
     Humanoid = Character:FindFirstChildOfClass("Humanoid")
     Hand     = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
-    Punch    = Character:FindFirstChild("Punch") or LocalPlayer.Backpack:FindFirstChild("Punch")
+    Punch    = Character:FindFirstChild("Punch")
+    HRP      = Character:FindFirstChild("HumanoidRootPart")
 end
 
 LocalPlayer.CharacterAdded:Connect(function()
@@ -86,7 +100,7 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait(0.8)
+        task.wait(0.6)
         UpdateRefs()
     end
 end)
@@ -97,15 +111,13 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Server Hop (populated servers preferred)
+-- Server Hop (prefers populated)
 local function ServerHop()
     local placeId = game.PlaceId
     local jobId   = game.JobId
     local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
     
-    local success, data = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
+    local success, data = pcall(HttpService.JSONDecode, HttpService, game:HttpGet(url))
     
     if not success or not data or not data.data then return end
     
@@ -118,7 +130,6 @@ local function ServerHop()
     end
 end
 
--- Auto hop on timer
 RunService.Heartbeat:Connect(function()
     if AUTO_SERVER_HOP and os.clock() - LastServerHop >= SERVER_HOP_INTERVAL then
         LastServerHop = os.clock()
@@ -126,7 +137,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Hop when you die
+-- Hop on death
 LocalPlayer.CharacterAdded:Connect(function(char)
     local hum = char:WaitForChild("Humanoid", 10)
     if hum then
@@ -137,28 +148,57 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Main loop: punch + kill
+-- Auto Equip Punch Loop
+task.spawn(function()
+    while true do
+        task.wait(0.4)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local backpackPunch = LocalPlayer.Backpack:FindFirstChild("Punch")
+            if backpackPunch and hum and hum.Health > 0 then
+                hum:EquipTool(backpackPunch)
+            end
+        end
+    end
+end)
+
+-- Walk on Water (velocity buoyancy)
+task.spawn(function()
+    while WalkOnWaterEnabled do
+        task.wait(0.1)
+        if HRP and Humanoid and Humanoid.Health > 0 and Humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
+            local ray = workspace:Raycast(HRP.Position, Vector3.new(0, -10, 0))
+            if ray and ray.Material == Enum.Material.Water then
+                HRP.Velocity = Vector3.new(HRP.Velocity.X, math.max(25, HRP.Velocity.Y), HRP.Velocity.Z)
+            end
+        end
+    end
+end)
+
+-- Main Farm Loop: Punch + Kill
 RunService.RenderStepped:Connect(function()
     if not Running or not Character or not Humanoid or Humanoid.Health <= 0 then return end
-    if os.clock() - LastAttack < 0.07 then return end  -- throttle
+    if os.clock() - LastAttack < 0.07 then return end
     LastAttack = os.clock()
 
-    -- Equip/refresh Punch
-    if not Punch or not Punch.Parent == Character then
-        if LocalPlayer.Backpack:FindFirstChild("Punch") then
-            Humanoid:EquipTool(LocalPlayer.Backpack.Punch)
+    -- Backup equip
+    if not Punch or Punch.Parent ~= Character then
+        local bpPunch = LocalPlayer.Backpack:FindFirstChild("Punch")
+        if bpPunch and Humanoid then
+            Humanoid:EquipTool(bpPunch)
         end
         Punch = Character:FindFirstChild("Punch")
         if not Punch then return end
     end
 
-    -- Attempt to bypass cooldown (old method; may not work)
-    if Punch:FindFirstChild("attackTime") then
-        Punch.attackTime.Value = 0
+    -- Bypass cooldown
+    local attackTime = Punch:FindFirstChild("attackTime")
+    if attackTime then
+        attackTime.Value = 0
     end
     Punch:Activate()
 
-    -- Kill loop
+    -- Kill nearby/weak players
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and ShouldKill(plr) then
             local tchar = plr.Character
@@ -166,7 +206,7 @@ RunService.RenderStepped:Connect(function()
             local thum  = tchar:FindFirstChildOfClass("Humanoid")
             local head  = tchar:FindFirstChild("Head")
             local root  = tchar:FindFirstChild("HumanoidRootPart")
-            if thum and head and root and thum.Health > 0 then
+            if thum and head and root and thum.Health > 0 and Hand then
                 local oldAnchor = root.Anchored
                 root.Anchored = true
                 task.wait(0.01)
@@ -179,32 +219,39 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Go to Muscle King Gym (portal touch method)
+-- Go to Muscle King Gym (portal touch - requires 5+ rebirths)
 local function GotoMuscleKingGym()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = LocalPlayer.Character.HumanoidRootPart
-
-    -- Look for portal (names vary: "MuscleKingPortal", "KingGymPortal", "Muscle King Gym", etc.)
-    local portals = workspace:FindFirstChild("Portals") or workspace:FindFirstChild("Regions") or workspace
-    for _, obj in ipairs(portals:GetDescendants()) do
-        if obj:IsA("BasePart") and (obj.Name:lower():find("muscle king") or obj.Name:lower():find("king gym") or obj.Name:lower():find("kingportal")) then
-            hrp.CFrame = obj.CFrame + Vector3.new(0, 3, 0)
-            task.wait(0.4)
-            firetouchinterest(hrp, obj, 0)
-            task.wait(0.1)
-            firetouchinterest(hrp, obj, 1)
-            print("Attempted portal to Muscle King Gym")
+    task.wait(1)
+    if not HRP then return end
+    
+    -- Search entire workspace for portal
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (
+            obj.Name:lower():find("muscle king") or 
+            obj.Name:lower():find("king gym") or 
+            obj.Name:lower():find("kingportal") or
+            obj.Name == "Muscle King Gym Portal"
+        ) then
+            HRP.CFrame = obj.CFrame * CFrame.new(0, 5, 0)
+            task.wait(0.5)
+            firetouchinterest(HRP, obj, 0)
+            task.wait(0.2)
+            firetouchinterest(HRP, obj, 1)
+            print("Teleported to Muscle King Gym Portal!")
             return
         end
     end
-
-    warn("Muscle King Gym portal not found. Ensure you have 5+ rebirths. Trying fallback TP near beach area.")
-    -- Fallback rough position near Legend Beach / King area (adjust if needed via explorer)
-    hrp.CFrame = CFrame.new(3000, 100, -2000)  -- approximate; open executor explorer to get real coords
+    
+    -- Fallback: TP to Legend Beach area (near portals)
+    HRP.CFrame = CFrame.new(2850, 50, -1850)  -- Approximate portal hub
+    warn("Muscle King Gym portal not found (need 5+ rebirths?). TP'd to beach.")
 end
 
--- Run gym TP after load
-task.delay(6, GotoMuscleKingGym)  -- give time for map/leaderstats to load
+-- Init: Load & TP to Gym
+task.spawn(function()
+    task.wait(5)  -- Full load
+    GotoMuscleKingGym()
+end)
 
-print("Invincible Kill Farm loaded | Whitelisted | Auto-Hop & Gym TP active")
-warn("firetouchinterest kill method is detectable — use at own risk. Consider switching to velocity/loop TP methods if patched.")
+print("Invincible Kill Farm LOADED | Auto-Punch Equip | Walk on Water | Muscle King Gym TP | Farm Active!")
+warn("High ban risk from kills - use private servers. Report firetouchinterest if patched.")
