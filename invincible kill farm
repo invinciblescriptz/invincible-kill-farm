@@ -1,19 +1,19 @@
--- Invincible Kill Farm - Complete Fixed Script (Feb 28, 2026)
--- Muscle Legends (PlaceId: 3623096087) | Auto-Kill | Server Hop | Auto Equip Punch | Walk on Water | Muscle King Gym TP
+-- Invincible Kill Farm - Fully Fixed & Optimized (Feb 28, 2026)
+-- Muscle Legends (PlaceId: 3623096087) | Auto-Kill Aura | Anti-Full Server Hop | Auto Punch Equip | Walk on Water (BodyPosition + Raycast) | Muscle King Gym TP
 
 local whitelistedUsers = {
     "hebdjxhc", "xntz_o", "VVSXOXlolkgg",
     "krxzy_214", "alexglover020", "ALT_killa08",
 }
 
-local Players           = game:GetService("Players")
-local RunService        = game:GetService("RunService")
-local VirtualUser       = game:GetService("VirtualUser")
-local TeleportService   = game:GetService("TeleportService")
-local HttpService       = game:GetService("HttpService")
-local LocalPlayer       = Players.LocalPlayer
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
 
--- PlaceId check (Muscle Legends only)
+-- PlaceId check
 if game.PlaceId ~= 3623096087 then
     LocalPlayer:Kick("This script is for Muscle Legends only! (PlaceId: 3623096087)")
     return
@@ -33,7 +33,6 @@ local window = library:AddWindow("Invincible Kill Farm", {
     can_resize = false,
     background_transparency = 1,
 })
-
 local tab = window:AddTab("credits")
 tab:AddLabel("made by Invincible")
 tab:AddLabel("discord.gg/eSVF5Rsf")
@@ -42,24 +41,31 @@ if getgenv().AutoKillLoaded then return end
 getgenv().AutoKillLoaded = true
 
 -- Config
-local AUTO_SERVER_HOP    = true
-local SERVER_HOP_INTERVAL = 30
-local LastServerHop      = os.clock()
-local Running            = true
-local KillOnlyWeaker     = true
-local LastAttack         = 0
+local AUTO_SERVER_HOP = true
+local SERVER_HOP_INTERVAL = 600  -- 10 min (less aggressive)
+local LastServerHop = os.clock()
+local Running = true
+local KillOnlyWeaker = true
+local LastAttack = 0
 local WalkOnWaterEnabled = true
+local KILL_DISTANCE = 100  -- Max distance for kill aura
 
-getgenv().WhitelistedPlayers    = getgenv().WhitelistedPlayers or {}
+getgenv().WhitelistedPlayers = getgenv().WhitelistedPlayers or {}
 getgenv().TempWhitelistStronger = getgenv().TempWhitelistStronger or {}
+
+-- RaycastParams for water detection
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+raycastParams.FilterDescendantsInstances = {}
 
 -- Helpers
 local function GetStat(plr, names)
     if type(names) == "string" then names = {names} end
+    local leaderstats = plr:FindFirstChild("leaderstats")
     for _, n in ipairs(names) do
         local v = plr:GetAttribute(n)
-        if v == nil and plr:FindFirstChild("leaderstats") then
-            local stat = plr.leaderstats:FindFirstChild(n)
+        if v == nil and leaderstats then
+            local stat = leaderstats:FindFirstChild(n)
             if stat then v = stat.Value end
         end
         if v then return tonumber(v) end
@@ -82,20 +88,22 @@ local function ShouldKill(targetPlayer)
 end
 
 -- Character refs
-local Character, Humanoid, Hand, Punch, HRP
+local Character, Humanoid, Hand, Punch, HRP, BodyPosition
 
 local function UpdateRefs()
     Character = LocalPlayer.Character
     if not Character then return end
     Humanoid = Character:FindFirstChildOfClass("Humanoid")
-    Hand     = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
-    Punch    = Character:FindFirstChild("Punch")
-    HRP      = Character:FindFirstChild("HumanoidRootPart")
+    Hand = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
+    Punch = Character:FindFirstChild("Punch")
+    HRP = Character:FindFirstChild("HumanoidRootPart")
+    raycastParams.FilterDescendantsInstances = {Character}
 end
 
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(1.5)
     UpdateRefs()
+    BodyPosition = nil  -- Reset on respawn
 end)
 
 task.spawn(function()
@@ -111,22 +119,47 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Server Hop (prefers populated)
+-- Improved ServerHop: Prioritizes low-pop servers with space (fixes "full" issue)
 local function ServerHop()
     local placeId = game.PlaceId
-    local jobId   = game.JobId
-    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
+    local jobId = game.JobId
+    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"  -- Asc for low pop first
     
-    local success, data = pcall(HttpService.JSONDecode, HttpService, game:HttpGet(url))
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
+    end)
     
-    if not success or not data or not data.data then return end
+    if not success or not data or not data.data then 
+        warn("Server list fetch failed")
+        return 
+    end
     
+    local candidates = {}
     for _, srv in ipairs(data.data) do
-        local fill = srv.playing / srv.maxPlayers
-        if srv.id ~= jobId and srv.playing >= 12 and fill >= 0.55 then
-            TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
-            return
+        if srv.id ~= jobId 
+           and srv.playing < srv.maxPlayers  -- MUST have space
+           and srv.playing <= 15              -- Avoid near-full (max 20)
+           and srv.playing > 0                -- Skip dead
+        then
+            table.insert(candidates, srv)
         end
+    end
+    
+    -- Fallback: any with space
+    if #candidates == 0 then
+        for _, srv in ipairs(data.data) do
+            if srv.id ~= jobId and srv.playing < srv.maxPlayers then
+                table.insert(candidates, srv)
+            end
+        end
+    end
+    
+    if #candidates > 0 then
+        local chosen = candidates[math.random(1, #candidates)]
+        print("Hopping to " .. chosen.playing .. "/" .. chosen.maxPlayers .. " players server")
+        TeleportService:TeleportToPlaceInstance(placeId, chosen.id, LocalPlayer)
+    else
+        warn("No open servers found - retrying later")
     end
 end
 
@@ -148,37 +181,54 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Auto Equip Punch Loop
+-- Auto Equip Punch
 task.spawn(function()
     while true do
         task.wait(0.4)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if Humanoid and Humanoid.Health > 0 then
             local backpackPunch = LocalPlayer.Backpack:FindFirstChild("Punch")
-            if backpackPunch and hum and hum.Health > 0 then
-                hum:EquipTool(backpackPunch)
+            if backpackPunch then
+                Humanoid:EquipTool(backpackPunch)
             end
         end
     end
 end)
 
--- Walk on Water (velocity buoyancy)
+-- Walk on Water: BodyPosition + Raycast (merged & fixed)
 task.spawn(function()
     while WalkOnWaterEnabled do
         task.wait(0.1)
         if HRP and Humanoid and Humanoid.Health > 0 and Humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
-            local ray = workspace:Raycast(HRP.Position, Vector3.new(0, -10, 0))
-            if ray and ray.Material == Enum.Material.Water then
-                HRP.Velocity = Vector3.new(HRP.Velocity.X, math.max(25, HRP.Velocity.Y), HRP.Velocity.Z)
+            local rayResult = workspace:Raycast(HRP.Position, Vector3.new(0, -15, 0), raycastParams)
+            if rayResult and (rayResult.Material == Enum.Material.Water or rayResult.Instance.Name:lower():find("water") or rayResult.Instance.Name:lower():find("sea")) then
+                if not BodyPosition then
+                    BodyPosition = Instance.new("BodyPosition")
+                    BodyPosition.MaxForce = Vector3.new(0, math.huge, 0)
+                    BodyPosition.P = 5000
+                    BodyPosition.D = 1000
+                    BodyPosition.Parent = HRP
+                end
+                local waterY = rayResult.Position.Y + rayResult.Instance.Size.Y / 2 + 3
+                BodyPosition.Position = Vector3.new(HRP.Position.X, waterY, HRP.Position.Z)
+            else
+                if BodyPosition then
+                    BodyPosition:Destroy()
+                    BodyPosition = nil
+                end
+            end
+        else
+            if BodyPosition then
+                BodyPosition:Destroy()
+                BodyPosition = nil
             end
         end
     end
 end)
 
--- Main Farm Loop: Punch + Kill
+-- Main Farm: Punch + Kill Aura (with distance limit)
 RunService.RenderStepped:Connect(function()
     if not Running or not Character or not Humanoid or Humanoid.Health <= 0 then return end
-    if os.clock() - LastAttack < 0.07 then return end
+    if os.clock() - LastAttack < 0.08 then return end  -- Slightly slower for stability
     LastAttack = os.clock()
 
     -- Backup equip
@@ -186,111 +236,82 @@ RunService.RenderStepped:Connect(function()
         local bpPunch = LocalPlayer.Backpack:FindFirstChild("Punch")
         if bpPunch and Humanoid then
             Humanoid:EquipTool(bpPunch)
+            task.wait(0.1)
         end
         Punch = Character:FindFirstChild("Punch")
         if not Punch then return end
     end
 
-    -- Bypass cooldown
+    -- Cooldown bypass
     local attackTime = Punch:FindFirstChild("attackTime")
-    if attackTime then
-        attackTime.Value = 0
-    end
+    if attackTime then attackTime.Value = 0 end
     Punch:Activate()
 
-    -- Kill nearby/weak players
+    -- Kill aura (distance limited)
+    if not HRP then return end
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and ShouldKill(plr) then
             local tchar = plr.Character
             if not tchar then continue end
-            local thum  = tchar:FindFirstChildOfClass("Humanoid")
-            local head  = tchar:FindFirstChild("Head")
-            local root  = tchar:FindFirstChild("HumanoidRootPart")
-            if thum and head and root and thum.Health > 0 and Hand then
-                local oldAnchor = root.Anchored
-                root.Anchored = true
-                task.wait(0.01)
-                firetouchinterest(head, Hand, 0)
-                task.wait(0.03)
-                firetouchinterest(head, Hand, 1)
-                root.Anchored = oldAnchor
+            local thum = tchar:FindFirstChildOfClass("Humanoid")
+            local head = tchar:FindFirstChild("Head")
+            local root = tchar:FindFirstChild("HumanoidRootPart")
+            if thum and head and root and thum.Health > 0 and Hand and HRP then
+                local dist = (root.Position - HRP.Position).Magnitude
+                if dist < KILL_DISTANCE then
+                    local oldAnchor = root.Anchored
+                    root.Anchored = true
+                    firetouchinterest(head, Hand, 0)
+                    firetouchinterest(head, Hand, 1)
+                    root.Anchored = oldAnchor
+                end
             end
         end
     end
 end)
 
--- Go to Muscle King Gym (portal touch - requires 5+ rebirths)
+-- Muscle King Gym TP (optimized search)
+local muscleKingPortal = nil
+local function FindMuscleKingPortal()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (
+            obj.Name:lower():find("muscle king") or
+            obj.Name:lower():find("king gym") or
+            obj.Name:lower():find("kingportal") or
+            obj.Name == "Muscle King Gym Portal"
+        ) then
+            muscleKingPortal = obj
+            return obj
+        end
+    end
+    return nil
+end
+
 local function GotoMuscleKingGym()
     task.wait(1)
     if not HRP then return end
     
-    -- Search entire workspace for portal
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and (
-            obj.Name:lower():find("muscle king") or 
-            obj.Name:lower():find("king gym") or 
-            obj.Name:lower():find("kingportal") or
-            obj.Name == "Muscle King Gym Portal"
-        ) then
-            HRP.CFrame = obj.CFrame * CFrame.new(0, 5, 0)
-            task.wait(0.5)
-            firetouchinterest(HRP, obj, 0)
-            task.wait(0.2)
-            firetouchinterest(HRP, obj, 1)
-            print("Teleported to Muscle King Gym Portal!")
-            return
-        end
+    local portal = muscleKingPortal or FindMuscleKingPortal()
+    if portal then
+        HRP.CFrame = portal.CFrame * CFrame.new(0, 5, 0)
+        task.wait(0.5)
+        firetouchinterest(HRP, portal, 0)
+        task.wait(0.2)
+        firetouchinterest(HRP, portal, 1)
+        print("TP to Muscle King Gym Portal!")
+    else
+        -- Updated fallback: Legend Beach / Portal hub approx (2026)
+        HRP.CFrame = CFrame.new(2850, 50, -1850)
+        warn("Portal not found (need 5+ rebirths?). TP'd to beach hub.")
     end
-    
-    -- Fallback: TP to Legend Beach area (near portals)
-    HRP.CFrame = CFrame.new(2850, 50, -1850)  -- Approximate portal hub
-    warn("Muscle King Gym portal not found (need 5+ rebirths?). TP'd to beach.")
 end
 
--- Init: Load & TP to Gym
+-- Init
 task.spawn(function()
-    task.wait(5)  -- Full load
+    task.wait(5)
+    FindMuscleKingPortal()  -- Cache once
     GotoMuscleKingGym()
 end)
 
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
-
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local rootPart = character:WaitForChild("HumanoidRootPart")
-
-local bodyPosition
-
-local function onTouchedWater(hit)
-    if hit and hit.Name == "Water" then
-        if not bodyPosition then
-            bodyPosition = Instance.new("BodyPosition")
-            bodyPosition.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-            bodyPosition.P = 1000
-            bodyPosition.Parent = rootPart
-        end
-        -- Set the position to be just above the water surface
-        local waterHeight = hit.Position.Y + hit.Size.Y/2
-        bodyPosition.Position = Vector3.new(rootPart.Position.X, waterHeight + 2, rootPart.Position.Z)
-    end
-end
-
-local function onTouchEndedWater(hit)
-    if hit and hit.Name == "Water" then
-        if bodyPosition then
-            bodyPosition:Destroy()
-            bodyPosition = nil
-        end
-    end
-end
-
--- Connect touch events to all water parts
-for _, part in pairs(workspace:GetChildren()) do
-    if part.Name == "Water" and part:IsA("BasePart") then
-        part.Touched:Connect(onTouchedWater)
-        part.TouchEnded:Connect(onTouchEndedWater)
-    end
-end
+print("Invincible Kill Farm FULLY LOADED | Anti-Full Hop | BodyPosition Water Walk | Kill Aura Active!")
+warn("Test in privates. Reports = bans. Portal needs rebirths.")
