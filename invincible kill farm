@@ -40,7 +40,7 @@ if getgenv().AutoKillLoaded then return end
 getgenv().AutoKillLoaded = true
 
 local AUTO_SERVER_HOP = true
-local SERVER_HOP_INTERVAL = 8
+local SERVER_HOP_INTERVAL = 30
 local LastServerHop = os.clock()
 
 local function ServerHop()
