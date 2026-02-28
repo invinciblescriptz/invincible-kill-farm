@@ -1,9 +1,21 @@
 local function TeleportToMuscleKingGym()
     local teleportService = game:GetService("TeleportService")
     local player = game:GetService("Players").LocalPlayer
+    -- Replace 'MuscleKingGymPlaceId' with the actual place ID
     teleportService:Teleport(MuscleKingGymPlaceId, player)
 end
 
--- Immediately teleport upon script load
+local function tpTo(position)
+    -- Assuming you want to teleport within the same game universe
+    -- This function should set the player's character position
+    local player = game:GetService("Players").LocalPlayer
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(position)
+    end
+end
+
+-- Immediately teleport to Muscle King Gym
 TeleportToMuscleKingGym()
-("To Muscle King Area", function() tpTo(Vector3.new(-8626, 16, -5730)) end)
+
+-- Optional: teleport to specific coordinates after load
+tpTo(Vector3.new(-8626, 16, -5730))
