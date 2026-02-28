@@ -1,4 +1,3 @@
--- Function to teleport to Muscle King Gym
 local function TeleportToMuscleKingGym()
     local teleportService = game:GetService("TeleportService")
     local player = game:GetService("Players").LocalPlayer
@@ -7,9 +6,4 @@ end
 
 -- Immediately teleport upon script load
 TeleportToMuscleKingGym()
-
--- Add the teleport button in a new tab
-local teleportTab = window:AddTab("Teleport")
-teleportTab:AddButton("Go to Muscle King Gym", function()
-    TeleportToMuscleKingGym()
-end)
+("To Muscle King Area", function() tpTo(Vector3.new(-8626, 16, -5730)) end)
