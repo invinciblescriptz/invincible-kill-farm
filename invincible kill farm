@@ -258,20 +258,36 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local bodyPosition
+
 local function onTouchedWater(hit)
-    if hit and hit.Name == "Water" then -- Make sure your water parts are named "Water"
-        humanoid.PlatformStand = true -- Allows walking on water
-        -- Optional: add visual or sound effects here
+    if hit and hit.Name == "Water" then
+        if not bodyPosition then
+            bodyPosition = Instance.new("BodyPosition")
+            bodyPosition.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            bodyPosition.P = 1000
+            bodyPosition.Parent = rootPart
+        end
+        -- Set the position to be just above the water surface
+        local waterHeight = hit.Position.Y + hit.Size.Y/2
+        bodyPosition.Position = Vector3.new(rootPart.Position.X, waterHeight + 2, rootPart.Position.Z)
     end
 end
 
 local function onTouchEndedWater(hit)
     if hit and hit.Name == "Water" then
-        humanoid.PlatformStand = false -- Reset when leaving water
+        if bodyPosition then
+            bodyPosition:Destroy()
+            bodyPosition = nil
+        end
     end
 end
 
--- Connect touch events
+-- Connect touch events to all water parts
 for _, part in pairs(workspace:GetChildren()) do
     if part.Name == "Water" and part:IsA("BasePart") then
         part.Touched:Connect(onTouchedWater)
