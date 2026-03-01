@@ -24,7 +24,7 @@ local window = library:AddWindow("Invincible Kill Farm", {
 -- Main Tab
 local mainTabData, mainTab = window:AddTab("Main")
 
--- Settings (linked to UI)
+-- Settings
 local AutoFarmEnabled = true
 local AutoServerHopEnabled = true
 local ServerHopInterval = 30
@@ -32,107 +32,63 @@ local KillOnlyWeakerEnabled = true
 local AutoTPKingGymEnabled = true
 local AutoLockPositionEnabled = true
 local AutoSetNightTimeEnabled = true
-local AutoSetSizeNaNEnabled = true   -- ← NEW
+local AutoBigHitboxEnabled = true   -- was NaN, now big size
 
 -- UI Toggles & Slider
-local farmSwitchData = mainTabData:AddSwitch("Auto Farm", function(state)
-    AutoFarmEnabled = state
-end)
-farmSwitchData:Set(true)
-
-local hopSwitchData = mainTabData:AddSwitch("Auto Server Hop (30s)", function(state)
-    AutoServerHopEnabled = state
-end)
-hopSwitchData:Set(true)
-
-local intervalSliderData = mainTabData:AddSlider("Hop Interval (s)", function(value)
-    ServerHopInterval = value
-end, {min = 5, max = 120})
-intervalSliderData:Set(30)
-
-local weakerSwitchData = mainTabData:AddSwitch("Kill Only Weaker", function(state)
-    KillOnlyWeakerEnabled = state
-end)
-weakerSwitchData:Set(true)
-
-local tpSwitchData = mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state)
-    AutoTPKingGymEnabled = state
-end)
-tpSwitchData:Set(true)
-
-local lockSwitchData = mainTabData:AddSwitch("Auto Lock Position (King Gym)", function(state)
+mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Server Hop", function(state) AutoServerHopEnabled = state end):Set(true)
+mainTabData:AddSlider("Hop Interval (s)", function(value) ServerHopInterval = value end, {min = 5, max = 120}):Set(30)
+mainTabData:AddSwitch("Kill Only Weaker", function(state) KillOnlyWeakerEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state) AutoTPKingGymEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Lock Position", function(state)
     AutoLockPositionEnabled = state
-    if state then
-        setupPositionLock()
-    else
-        clearPositionLock()
-    end
-end)
-lockSwitchData:Set(true)
-
-local nightSwitchData = mainTabData:AddSwitch("Auto Set Night Time", function(state)
+    if state then setupPositionLock() else clearPositionLock() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Set Night Time", function(state)
     AutoSetNightTimeEnabled = state
-    if state then
-        setNightTime()
-    end
-end)
-nightSwitchData:Set(true)
+    if state then setNightTime() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Big Hitbox", function(state)
+    AutoBigHitboxEnabled = state
+    if not state then resetHitbox() end
+end):Set(true)
 
--- NEW: Auto Set Size NaN toggle
-local sizeNaNSwitchData = mainTabData:AddSwitch("Auto Set Size NaN", function(state)
-    AutoSetSizeNaNEnabled = state
-    if not state then
-        resetCharacterSize()   -- try to clean up when turning off
-    end
-end)
-sizeNaNSwitchData:Set(true)
-
--- Manual TP Button
+-- Gym location
 local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217, 0.765763462, -1.84813775e-09, 0.643122315, -1.32089262e-09, 1, 4.44647785e-09, -0.643122315, -4.25444568e-09, 0.765763462)
-local gymPos = Vector3.new(-8625.93262, 17.2325287, -5730.47217)
+local gymPos = gymCFrame.Position
 
 mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
-    local char = player.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        char.HumanoidRootPart.CFrame = gymCFrame
-    end
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.CFrame = gymCFrame end
 end)
 
-mainTabData:AddButton("Set Night Time (Manual)", function()
-    setNightTime()
-end)
+mainTabData:AddButton("Set Night Time (Manual)", setNightTime)
 
--- Credits Tab
-local creditsTabData = window:AddTab("Credits")
-creditsTabData:AddLabel("made by Invincible")
-creditsTabData:AddLabel("https://discord.gg/eSVF5Rsf")
+-- Credits
+local creditsTab = window:AddTab("Credits")
+creditsTab:AddLabel("made by Invincible")
+creditsTab:AddLabel("https://discord.gg/eSVF5Rsf")
 
 -- Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local VirtualUser = game:GetService("VirtualUser")
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local VirtualUser    = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Lighting = game:GetService("Lighting")
-local LocalPlayer = Players.LocalPlayer
+local HttpService    = game:GetService("HttpService")
+local Lighting       = game:GetService("Lighting")
+local LocalPlayer    = Players.LocalPlayer
 
 if getgenv().AutoKillLoaded then return end
 getgenv().AutoKillLoaded = true
 
 local LastServerHop = os.clock()
 
--- Position Lock Vars
+-- Position Lock
 local positionLockAlignPos, positionLockAttachment
 
 local function clearPositionLock()
-    if positionLockAlignPos then
-        positionLockAlignPos:Destroy()
-        positionLockAlignPos = nil
-    end
-    if positionLockAttachment then
-        positionLockAttachment:Destroy()
-        positionLockAttachment = nil
-    end
+    if positionLockAlignPos then positionLockAlignPos:Destroy() positionLockAlignPos = nil end
+    if positionLockAttachment then positionLockAttachment:Destroy() positionLockAttachment = nil end
 end
 
 local function setupPositionLock()
@@ -140,17 +96,18 @@ local function setupPositionLock()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    
-    positionLockAttachment = Instance.new("Attachment")
-    positionLockAttachment.Parent = hrp
-    
+
+    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)  -- Try claim ownership
+
+    positionLockAttachment = Instance.new("Attachment", hrp)
+
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
     positionLockAlignPos.Position = gymPos
-    positionLockAlignPos.MaxForce = 999999
+    positionLockAlignPos.MaxForce = 1e7
     positionLockAlignPos.MaxVelocity = math.huge
-    positionLockAlignPos.Responsiveness = 999
-    positionLockAlignPos.RigidityEnabled = true   -- ← much stronger lock
+    positionLockAlignPos.Responsiveness = 200
+    positionLockAlignPos.RigidityEnabled = true
     positionLockAlignPos.Parent = hrp
 end
 
@@ -158,35 +115,33 @@ end
 local function setNightTime()
     Lighting.ClockTime = 0
     Lighting.Brightness = 0.5
-    Lighting.Ambient = Color3.fromRGB(50, 50, 70)
-    Lighting.OutdoorAmbient = Color3.fromRGB(30, 30, 50)
+    Lighting.Ambient = Color3.fromRGB(50,50,70)
+    Lighting.OutdoorAmbient = Color3.fromRGB(30,30,50)
 end
 
--- NEW: Size NaN helpers
-local function setCharacterSizeNaN()
-    if not LocalPlayer.Character then return end
-    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    hrp.Size = Vector3.new(0/0, 0/0, 0/0)  -- NaN
+-- Hitbox (replaces useless NaN)
+local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)  -- tune: 15-40 common
+
+local function setBigHitbox()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = TARGET_HITBOX_SIZE end
 end
 
-local function resetCharacterSize()
-    if not LocalPlayer.Character then return end
-    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    hrp.Size = Vector3.new(2, 2, 1)  -- default-ish size (adjust if needed)
+local function resetHitbox()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = Vector3.new(2, 2, 1) end
 end
 
--- Stat helpers
+-- Stats / Kill logic (unchanged)
 local function GetPlayerStatValue(plr, statNames)
     if not plr then return nil end
     if type(statNames) == "string" then statNames = {statNames} end
-    
     for _, name in statNames do
         local val = plr:GetAttribute(name)
         if val ~= nil then return tonumber(val) end
     end
-    
     local stats = plr:FindFirstChild("leaderstats")
     if stats then
         for _, name in statNames do
@@ -201,19 +156,16 @@ local function GetLocalPlayerDamage()
     return GetPlayerStatValue(LocalPlayer, {"Damage", "DMG", "Attack", "Strength", "Str"}) or 1
 end
 
-local function GetTargetHealth(targetPlayer)
-    local hum = targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+local function GetTargetHealth(target)
+    local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
     return hum and hum.MaxHealth or 100
 end
 
-local function ShouldKillPlayer(targetPlayer)
+local function ShouldKillPlayer(target)
     if not KillOnlyWeakerEnabled then return true end
-    
     local myDmg = GetLocalPlayerDamage()
-    local theirHP = GetTargetHealth(targetPlayer)
-    local hitsNeeded = math.ceil(theirHP / myDmg)
-    
-    return hitsNeeded <= 5
+    local theirHP = GetTargetHealth(target)
+    return math.ceil(theirHP / myDmg) <= 5
 end
 
 -- Character vars
@@ -223,7 +175,6 @@ local LastAttack = 0
 local function UpdateAll()
     Character = LocalPlayer.Character
     if not Character then return end
-    
     Humanoid = Character:FindFirstChildOfClass("Humanoid")
     Hand = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
     Punch = Character:FindFirstChild("Punch")
@@ -231,142 +182,155 @@ local function UpdateAll()
 end
 
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1.5)
+    task.wait(2)
     UpdateAll()
-    
     if AutoTPKingGymEnabled and HRP then
         HRP.CFrame = gymCFrame
-        task.wait(0.4)
+        task.wait(0.5)
     end
-    
     if AutoLockPositionEnabled then
-        task.wait(0.3)
+        task.wait(0.5)
         setupPositionLock()
     end
-    
     if AutoSetNightTimeEnabled then
-        task.wait(0.2)
+        task.wait(0.3)
         setNightTime()
     end
-    
-    if AutoSetSizeNaNEnabled then
+    if AutoBigHitboxEnabled then
         task.spawn(function()
-            task.wait(0.6)
-            setCharacterSizeNaN()
+            task.wait(0.8)
+            setBigHitbox()
         end)
     end
 end)
 
 UpdateAll()
 
--- Anti-idle
+-- Anti-AFK
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Server Hop
+-- Suppress teleport popups
+pcall(function()
+    TeleportService.TeleportInitFailed:Connect(function(player, result, msg)
+        -- Silent fail handling
+    end)
+end)
+
+-- Improved Server Hop
 local function ServerHop()
     local placeId = game.PlaceId
-    local jobId = game.JobId
-    
-    local success, response = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(
-            "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
-        ))
-    end)
-    
-    if not success or not response or not response.data then
-        warn("Server list fetch failed")
-        return
-    end
-    
-    for _, server in ipairs(response.data) do
-        if server.id == jobId then continue end
-        if server.playing < 10 then continue end
-        
-        local fill = server.playing / server.maxPlayers
-        if fill >= 0.6 then
-            TeleportService:TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
-            return
+    local myJobId = game.JobId
+
+    for attempt = 1, 6 do
+        local success, response = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(
+                "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
+            ))
+        end)
+
+        if not success or not response or not response.data then
+            task.wait(2 + attempt)
+            continue
         end
+
+        local candidates = {}
+        for _, srv in response.data do
+            if srv.id == myJobId then continue end
+            if srv.playing >= srv.maxPlayers then continue end
+            if srv.playing < 8 then continue end  -- avoid dead/low
+            local fill = srv.playing / srv.maxPlayers
+            if fill > 0.25 and fill < 0.9 then
+                table.insert(candidates, srv)
+            end
+        end
+
+        if #candidates == 0 then
+            task.wait(3 + attempt * 1.5)
+            continue
+        end
+
+        local target = candidates[math.random(1, #candidates)]
+
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
+        end)
+
+        task.wait(5 + attempt * 2)  -- backoff
     end
-    
-    warn("No suitable server found")
+    warn("Server hop exhausted attempts")
 end
 
 -- Main Loop
 RunService.Heartbeat:Connect(function()
-    -- Server Hop
+    -- Hop
     if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
         LastServerHop = os.clock()
         task.spawn(ServerHop)
     end
-    
-    -- Night time refresh
+
+    -- Night refresh
     if AutoSetNightTimeEnabled and math.floor(os.clock()) % 5 == 0 then
         setNightTime()
     end
-    
-    -- NEW: NaN size refresh (many games fight back)
-    if AutoSetSizeNaNEnabled and math.floor(os.clock() * 10) % 4 == 0 then
-        setCharacterSizeNaN()
+
+    -- Hitbox refresh
+    if AutoBigHitboxEnabled and math.floor(os.clock() * 10) % 3 == 0 then
+        setBigHitbox()
     end
-    
-    -- Keep position locked strongly
-    if AutoLockPositionEnabled and positionLockAlignPos and HRP then
-        positionLockAlignPos.Position = gymPos
+
+    -- Aggressive position lock
+    if AutoLockPositionEnabled and HRP then
+        if positionLockAlignPos then
+            positionLockAlignPos.Position = gymPos
+        end
+        -- Fallback force
+        if math.floor(os.clock() * 20) % 3 == 0 then
+            HRP.CFrame = CFrame.new(gymPos) * HRP.CFrame.Rotation
+        end
     end
-    
+
     UpdateAll()
-    
+
     if not AutoFarmEnabled or not Character or not Humanoid or Humanoid.Health <= 0 then
         return
     end
-    
-    -- Equip Punch
+
     if not Punch then
         local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
-        if tool then
-            Humanoid:EquipTool(tool)
-        end
+        if tool then Humanoid:EquipTool(tool) end
         return
     end
-    
+
     if (os.clock() - LastAttack) < 0.08 then return end
     LastAttack = os.clock()
-    
-    -- Activate Punch
+
     local attackTime = Punch:FindFirstChild("attackTime")
-    if attackTime then
-        attackTime.Value = 0
-    end
+    if attackTime then attackTime.Value = 0 end
     Punch:Activate()
-    
-    -- Kill Aura
-    for _, otherPlayer in ipairs(Players:GetPlayers()) do
-        if otherPlayer == LocalPlayer then continue end
-        
-        if not ShouldKillPlayer(otherPlayer) then continue end
-        
-        local char = otherPlayer.Character
+
+    for _, other in Players:GetPlayers() do
+        if other == LocalPlayer then continue end
+        if not ShouldKillPlayer(other) then continue end
+
+        local char = other.Character
         if not char then continue end
-        
+
         local hum = char:FindFirstChildOfClass("Humanoid")
         local head = char:FindFirstChild("Head")
         local root = char:FindFirstChild("HumanoidRootPart")
-        
+
         if hum and head and root and hum.Health > 0 and Hand then
             local wasAnchored = root.Anchored
             root.Anchored = true
-            
             firetouchinterest(head, Hand, 0)
             task.wait()
             firetouchinterest(head, Hand, 1)
-            
             root.Anchored = wasAnchored
         end
     end
 end)
 
-print("Invincible Kill Farm Loaded! | Auto Night: ON | Size NaN: " .. (AutoSetSizeNaNEnabled and "ON" or "OFF") .. " | Hop every " .. ServerHopInterval .. "s")
+print("Invincible Kill Farm Loaded! | Night: ON | Big Hitbox: " .. (AutoBigHitboxEnabled and "ON" or "OFF") .. " | Hop: " .. ServerHopInterval .. "s")
