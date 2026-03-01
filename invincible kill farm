@@ -29,6 +29,9 @@ local AutoFarmEnabled = true
 local AutoServerHopEnabled = true
 local ServerHopInterval = 30
 local KillOnlyWeakerEnabled = true
+local AutoTPKingGymEnabled = true
+local AutoLockPositionEnabled = true
+local AutoSetNightTimeEnabled = true  -- New: Auto set night time
 
 -- UI Toggles & Slider
 local farmSwitchData = mainTabData:AddSwitch("Auto Farm", function(state)
@@ -36,7 +39,7 @@ local farmSwitchData = mainTabData:AddSwitch("Auto Farm", function(state)
 end)
 farmSwitchData:Set(true)
 
-local hopSwitchData = mainTabData:AddSwitch("Auto Server Hop", function(state)
+local hopSwitchData = mainTabData:AddSwitch("Auto Server Hop (30s)", function(state)
     AutoServerHopEnabled = state
 end)
 hopSwitchData:Set(true)
@@ -51,13 +54,43 @@ local weakerSwitchData = mainTabData:AddSwitch("Kill Only Weaker", function(stat
 end)
 weakerSwitchData:Set(true)
 
--- TP Button
-local gymPos = Vector3.new(-8936, 17, -5926)  -- Accurate Muscle King Gym position
-mainTabData:AddButton("TP Muscle King Gym", function()
+local tpSwitchData = mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state)
+    AutoTPKingGymEnabled = state
+end)
+tpSwitchData:Set(true)
+
+local lockSwitchData = mainTabData:AddSwitch("Auto Lock Position (King Gym)", function(state)
+    AutoLockPositionEnabled = state
+    if state then
+        setupPositionLock()
+    else
+        clearPositionLock()
+    end
+end)
+lockSwitchData:Set(true)
+
+-- New: Night Time Toggle
+local nightSwitchData = mainTabData:AddSwitch("Auto Set Night Time", function(state)
+    AutoSetNightTimeEnabled = state
+    if state then
+        setNightTime()
+    end
+end)
+nightSwitchData:Set(true)
+
+-- Manual TP Button
+local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217, 0.765763462, -1.84813775e-09, 0.643122315, -1.32089262e-09, 1, 4.44647785e-09, -0.643122315, -4.25444568e-09, 0.765763462)
+local gymPos = Vector3.new(-8625.93262, 17.2325287, -5730.47217)
+mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
     local char = player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        char.HumanoidRootPart.CFrame = CFrame.new(gymPos)
+        char.HumanoidRootPart.CFrame = gymCFrame
     end
+end)
+
+-- Manual Night Button
+mainTabData:AddButton("Set Night Time (Manual)", function()
+    setNightTime()
 end)
 
 -- Credits Tab
@@ -71,12 +104,58 @@ local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 
 if getgenv().AutoKillLoaded then return end
 getgenv().AutoKillLoaded = true
 
 local LastServerHop = os.clock()
+
+-- Position Lock Vars
+local positionLockAlignPos, positionLockAttachment
+
+local function clearPositionLock()
+    if positionLockAlignPos then
+        positionLockAlignPos:Destroy()
+        positionLockAlignPos = nil
+    end
+    if positionLockAttachment then
+        positionLockAttachment:Destroy()
+        positionLockAttachment = nil
+    end
+end
+
+local function setupPositionLock()
+    clearPositionLock()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    positionLockAttachment = Instance.new("Attachment")
+    positionLockAttachment.Parent = hrp
+    
+    positionLockAlignPos = Instance.new("AlignPosition")
+    positionLockAlignPos.Attachment0 = positionLockAttachment
+    positionLockAlignPos.Position = gymPos
+    positionLockAlignPos.MaxForce = 40000
+    positionLockAlignPos.MaxVelocity = math.huge
+    positionLockAlignPos.Responsiveness = 200
+    positionLockAlignPos.Parent = hrp
+end
+
+-- New: Set Night Time Function
+local function setNightTime()
+    -- Night time: ClockTime 0 = midnight (fully dark)
+    -- Use ClockTime for smoother control (0-24 hours)
+    Lighting.ClockTime = 0      -- Midnight = complete night
+    -- Alternative: Lighting.TimeOfDay = "00:00:00"
+    
+    -- Optional: Make it even darker if needed (some games override)
+    Lighting.Brightness = 0.5
+    Lighting.Ambient = Color3.fromRGB(50, 50, 70)     -- Slight blue tint for night feel
+    Lighting.OutdoorAmbient = Color3.fromRGB(30, 30, 50)
+end
 
 local function GetPlayerStatValue(plr, statNames)
     if not plr then return nil end
@@ -117,7 +196,7 @@ local function ShouldKillPlayer(targetPlayer)
 end
 
 -- Character vars
-local Character, Humanoid, Hand, Punch
+local Character, Humanoid, Hand, Punch, HRP
 local LastAttack = 0
 
 local function UpdateAll()
@@ -127,22 +206,41 @@ local function UpdateAll()
     Humanoid = Character:FindFirstChildOfClass("Humanoid")
     Hand = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
     Punch = Character:FindFirstChild("Punch")
+    HRP = Character:FindFirstChild("HumanoidRootPart")
 end
 
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
+    task.wait(2)  -- Wait for full load
     UpdateAll()
+    
+    -- Auto TP to King Gym
+    if AutoTPKingGymEnabled and HRP then
+        HRP.CFrame = gymCFrame
+        task.wait(0.5)
+    end
+    
+    -- Setup lock if enabled
+    if AutoLockPositionEnabled then
+        task.wait(0.5)
+        setupPositionLock()
+    end
+    
+    -- Auto set night time on respawn
+    if AutoSetNightTimeEnabled then
+        task.wait(0.3)
+        setNightTime()
+    end
 end)
 
 UpdateAll()
 
--- Anti-idle
+-- Anti-idle & Anti-AFK
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Server Hop
+-- Server Hop (every 30s default)
 local function ServerHop()
     local placeId = game.PlaceId
     local jobId = game.JobId
@@ -173,25 +271,30 @@ local function ServerHop()
 end
 
 -- Main Loop
-RunService.RenderStepped:Connect(function()
+RunService.Heartbeat:Connect(function()
     -- Server Hop
     if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
         LastServerHop = os.clock()
         task.spawn(ServerHop)
     end
     
+    -- Keep setting night time every few seconds (in case game resets it)
+    if AutoSetNightTimeEnabled and math.floor(os.clock()) % 5 == 0 then
+        setNightTime()
+    end
+    
+    UpdateAll()
+    
     if not AutoFarmEnabled or not Character or not Humanoid or Humanoid.Health <= 0 then
         return
     end
     
-    -- Equip Punch
+    -- Equip Punch if needed
     if not Punch then
         local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
         if tool then
             Humanoid:EquipTool(tool)
         end
-        task.wait(0.2)
-        UpdateAll()
         return
     end
     
@@ -231,4 +334,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Invincible Kill Farm Loaded! PlaceId:", game.PlaceId, "| Auto Hop every", ServerHopInterval, "s")
+print("Invincible Kill Farm Loaded! | Auto Night Time: ON | Hop every", ServerHopInterval, "s")
