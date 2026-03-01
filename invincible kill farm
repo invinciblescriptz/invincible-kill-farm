@@ -12,7 +12,7 @@ if not table.find(whitelistedUsers, player.Name) then
     return
 end
 
--- UI Library (keep original or change if dead)
+-- UI Library
 local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
 local window = library:AddWindow("Invincible Kill Farm", {
     main_color = Color3.fromRGB(0, 0, 0),
@@ -21,54 +21,72 @@ local window = library:AddWindow("Invincible Kill Farm", {
     background_transparency = 1,
 })
 
-local tab = window:AddTab("credits")
-tab:AddLabel("made by Invincible")
-tab:AddLabel("https://discord.gg/eSVF5Rsf")
+-- Main Tab
+local mainTabData, mainTab = window:AddTab("Main")
+
+-- Settings (linked to UI)
+local AutoFarmEnabled = true
+local AutoServerHopEnabled = true
+local ServerHopInterval = 30
+local KillOnlyWeakerEnabled = true
+
+-- UI Toggles & Slider
+local farmSwitchData = mainTabData:AddSwitch("Auto Farm", function(state)
+    AutoFarmEnabled = state
+end)
+farmSwitchData:Set(true)
+
+local hopSwitchData = mainTabData:AddSwitch("Auto Server Hop", function(state)
+    AutoServerHopEnabled = state
+end)
+hopSwitchData:Set(true)
+
+local intervalSliderData = mainTabData:AddSlider("Hop Interval (s)", function(value)
+    ServerHopInterval = value
+end, {min = 5, max = 120})
+intervalSliderData:Set(30)
+
+local weakerSwitchData = mainTabData:AddSwitch("Kill Only Weaker", function(state)
+    KillOnlyWeakerEnabled = state
+end)
+weakerSwitchData:Set(true)
+
+-- TP Button
+local gymPos = Vector3.new(-8936, 17, -5926)  -- Accurate Muscle King Gym position
+mainTabData:AddButton("TP Muscle King Gym", function()
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(gymPos)
+    end
+end)
+
+-- Credits Tab
+local creditsTabData = window:AddTab("Credits")
+creditsTabData:AddLabel("made by Invincible")
+creditsTabData:AddLabel("https://discord.gg/eSVF5Rsf")
 
 -- Services
-local Players          = game:GetService("Players")
-local RunService       = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local VirtualUser      = game:GetService("VirtualUser")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TeleportService  = game:GetService("TeleportService")
-local HttpService      = game:GetService("HttpService")
-local LocalPlayer      = Players.LocalPlayer
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
 
 if getgenv().AutoKillLoaded then return end
 getgenv().AutoKillLoaded = true
 
--- Settings
-local AUTO_SERVER_HOP    = true
-local SERVER_HOP_INTERVAL = 8   -- seconds
-local LastServerHop       = os.clock()
-
-local Running             = true
-local WhitelistFriends    = true
-local KillOnlyWeaker      = true
-
-getgenv().WhitelistedPlayers      = getgenv().WhitelistedPlayers or {}
-getgenv().TempWhitelistStronger   = getgenv().TempWhitelistStronger or {}
-
--- Blocked animations (unused in current logic — kept for possible future use)
-local BlockedAnimations = {
-    ["rbxassetid://3638729053"] = true,
-    ["rbxassetid://3638749874"] = true,
-    ["rbxassetid://3638767427"] = true,
-    ["rbxassetid://102357151005774"] = true
-}
+local LastServerHop = os.clock()
 
 local function GetPlayerStatValue(plr, statNames)
     if not plr then return nil end
     if type(statNames) == "string" then statNames = {statNames} end
     
-    -- Try attributes first
     for _, name in statNames do
         local val = plr:GetAttribute(name)
         if val ~= nil then return tonumber(val) end
     end
     
-    -- Then leaderstats
     local stats = plr:FindFirstChild("leaderstats")
     if stats then
         for _, name in statNames do
@@ -89,16 +107,16 @@ local function GetTargetHealth(targetPlayer)
 end
 
 local function ShouldKillPlayer(targetPlayer)
-    if not KillOnlyWeaker then return true end
+    if not KillOnlyWeakerEnabled then return true end
     
-    local myDmg   = GetLocalPlayerDamage()
+    local myDmg = GetLocalPlayerDamage()
     local theirHP = GetTargetHealth(targetPlayer)
     local hitsNeeded = math.ceil(theirHP / myDmg)
     
     return hitsNeeded <= 5
 end
 
--- Character update
+-- Character vars
 local Character, Humanoid, Hand, Punch
 local LastAttack = 0
 
@@ -107,8 +125,8 @@ local function UpdateAll()
     if not Character then return end
     
     Humanoid = Character:FindFirstChildOfClass("Humanoid")
-    Hand     = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
-    Punch    = Character:FindFirstChild("Punch")
+    Hand = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
+    Punch = Character:FindFirstChild("Punch")
 end
 
 LocalPlayer.CharacterAdded:Connect(function()
@@ -124,10 +142,10 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Better server hop
+-- Server Hop
 local function ServerHop()
     local placeId = game.PlaceId
-    local jobId   = game.JobId
+    local jobId = game.JobId
     
     local success, response = pcall(function()
         return HttpService:JSONDecode(game:HttpGet(
@@ -142,11 +160,10 @@ local function ServerHop()
     
     for _, server in ipairs(response.data) do
         if server.id == jobId then continue end
-        if not server.playing or server.playing < 10 then continue end
+        if server.playing < 10 then continue end
         
         local fill = server.playing / server.maxPlayers
         if fill >= 0.6 then
-            print("Hopping to server:", server.id, "(" .. server.playing .. "/" .. server.maxPlayers .. ")")
             TeleportService:TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
             return
         end
@@ -155,19 +172,19 @@ local function ServerHop()
     warn("No suitable server found")
 end
 
--- Main loop
+-- Main Loop
 RunService.RenderStepped:Connect(function()
-    -- Server hop timer
-    if AUTO_SERVER_HOP and (os.clock() - LastServerHop) >= SERVER_HOP_INTERVAL then
+    -- Server Hop
+    if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
         LastServerHop = os.clock()
-        task.spawn(ServerHop)  -- async hop
+        task.spawn(ServerHop)
     end
     
-    if not Running or not Character or not Humanoid or Humanoid.Health <= 0 then
+    if not AutoFarmEnabled or not Character or not Humanoid or Humanoid.Health <= 0 then
         return
     end
     
-    -- Equip punch if missing
+    -- Equip Punch
     if not Punch then
         local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
         if tool then
@@ -181,31 +198,29 @@ RunService.RenderStepped:Connect(function()
     if (os.clock() - LastAttack) < 0.08 then return end
     LastAttack = os.clock()
     
-    -- Spam attack (adjust delay if needed)
-    if Punch:FindFirstChild("attackTime") then
-        Punch.attackTime.Value = 0
+    -- Activate Punch
+    local attackTime = Punch:FindFirstChild("attackTime")
+    if attackTime then
+        attackTime.Value = 0
     end
     Punch:Activate()
     
-    -- Kill loop
+    -- Kill Aura
     for _, otherPlayer in ipairs(Players:GetPlayers()) do
         if otherPlayer == LocalPlayer then continue end
-        
-        -- Add your friend/stronger player whitelist logic here if needed
-        if WhitelistFriends and otherPlayer:IsFriendsWith(LocalPlayer.UserId) then continue end
         
         if not ShouldKillPlayer(otherPlayer) then continue end
         
         local char = otherPlayer.Character
         if not char then continue end
         
-        local hum  = char:FindFirstChildOfClass("Humanoid")
+        local hum = char:FindFirstChildOfClass("Humanoid")
         local head = char:FindFirstChild("Head")
         local root = char:FindFirstChild("HumanoidRootPart")
         
-        if hum and head and root and hum.Health > 0 then
+        if hum and head and root and hum.Health > 0 and Hand then
             local wasAnchored = root.Anchored
-            root.Anchored = true  -- helps touch register
+            root.Anchored = true
             
             firetouchinterest(head, Hand, 0)
             task.wait()
@@ -216,27 +231,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Optional: Attempt to walk to Muscle King Gym area (approximate coords - test in-game!)
--- These coords are guesses — open F3X or explorer to get real ones
-local function tryMoveToMuscleKingGym()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return
-    end
-    
-    local hrp = LocalPlayer.Character.HumanoidRootPart
-    -- Example position near Muscle King Gym portal / area (you need to find real one)
-    local targetPos = Vector3.new(-8626, 16, -5730)  -- ← your original guess; likely wrong
-    
-    -- Simple walk (replace with better pathfinding if needed)
-    LocalPlayer.Character.Humanoid:MoveTo(targetPos)
-    
-    -- Or force CFrame (risky, anti-cheat may detect)
-    -- hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
-end
-
--- Run once after load (you can toggle this or bind to key)
-task.delay(5, function()
-    tryMoveToMuscleKingGym()
-end)
-
-print("Script loaded - Kill farm active | Server hop:", AUTO_SERVER_HOP)
+print("Invincible Kill Farm Loaded! PlaceId:", game.PlaceId, "| Auto Hop every", ServerHopInterval, "s")
