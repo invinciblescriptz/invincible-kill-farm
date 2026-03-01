@@ -3,7 +3,6 @@ local whitelistedUsers = {
     "hebdjxhc", "xntz_o", "VVSXOXlolkgg",
     "krxzy_214", "alexglover020", "ALT_killa08",
 }
-
 local player = game:GetService("Players").LocalPlayer
 
 -- Whitelist check with instant kick
@@ -32,7 +31,8 @@ local KillOnlyWeakerEnabled = true
 local AutoTPKingGymEnabled = true
 local AutoLockPositionEnabled = true
 local AutoSetNightTimeEnabled = true
-local AutoBigHitboxEnabled = true   -- was NaN, now big size
+local AutoBigHitboxEnabled = true
+local AutoSizeNaNEnabled = false  -- NEW: Auto Size NaN toggle
 
 -- UI Toggles & Slider
 mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
@@ -52,6 +52,10 @@ mainTabData:AddSwitch("Auto Big Hitbox", function(state)
     AutoBigHitboxEnabled = state
     if not state then resetHitbox() end
 end):Set(true)
+mainTabData:AddSwitch("Auto Size NaN (old glitch)", function(state)   -- NEW TOGGLE
+    AutoSizeNaNEnabled = state
+    if not state then resetHitbox() end
+end):Set(false)
 
 -- Gym location
 local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217, 0.765763462, -1.84813775e-09, 0.643122315, -1.32089262e-09, 1, 4.44647785e-09, -0.643122315, -4.25444568e-09, 0.765763462)
@@ -70,13 +74,13 @@ creditsTab:AddLabel("made by Invincible")
 creditsTab:AddLabel("https://discord.gg/eSVF5Rsf")
 
 -- Services
-local Players        = game:GetService("Players")
-local RunService     = game:GetService("RunService")
-local VirtualUser    = game:GetService("VirtualUser")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
-local HttpService    = game:GetService("HttpService")
-local Lighting       = game:GetService("Lighting")
-local LocalPlayer    = Players.LocalPlayer
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local LocalPlayer = Players.LocalPlayer
 
 if getgenv().AutoKillLoaded then return end
 getgenv().AutoKillLoaded = true
@@ -96,11 +100,8 @@ local function setupPositionLock()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
-    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)  -- Try claim ownership
-
+    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
     positionLockAttachment = Instance.new("Attachment", hrp)
-
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
     positionLockAlignPos.Position = gymPos
@@ -119,13 +120,23 @@ local function setNightTime()
     Lighting.OutdoorAmbient = Color3.fromRGB(30,30,50)
 end
 
--- Hitbox (replaces useless NaN)
-local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)  -- tune: 15-40 common
+-- Hitbox & NaN Size
+local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)
 
 local function setBigHitbox()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if hrp then hrp.Size = TARGET_HITBOX_SIZE end
+end
+
+local function setSizeNaN()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    -- Most compatible huge-value method in many games (2025–2026 era)
+    hrp.Size = Vector3.new(math.huge, math.huge, math.huge)
+    -- Alternative (true NaN) — usually filtered/kicks faster:
+    -- hrp.Size = Vector3.new(0/0, 0/0, 0/0)
 end
 
 local function resetHitbox()
@@ -134,7 +145,7 @@ local function resetHitbox()
     if hrp then hrp.Size = Vector3.new(2, 2, 1) end
 end
 
--- Stats / Kill logic (unchanged)
+-- Stats / Kill logic
 local function GetPlayerStatValue(plr, statNames)
     if not plr then return nil end
     if type(statNames) == "string" then statNames = {statNames} end
@@ -202,6 +213,12 @@ LocalPlayer.CharacterAdded:Connect(function()
             setBigHitbox()
         end)
     end
+    if AutoSizeNaNEnabled then
+        task.spawn(function()
+            task.wait(1.0)
+            setSizeNaN()
+        end)
+    end
 end)
 
 UpdateAll()
@@ -223,42 +240,35 @@ end)
 local function ServerHop()
     local placeId = game.PlaceId
     local myJobId = game.JobId
-
     for attempt = 1, 6 do
         local success, response = pcall(function()
             return HttpService:JSONDecode(game:HttpGet(
                 "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
             ))
         end)
-
         if not success or not response or not response.data then
             task.wait(2 + attempt)
             continue
         end
-
         local candidates = {}
         for _, srv in response.data do
             if srv.id == myJobId then continue end
             if srv.playing >= srv.maxPlayers then continue end
-            if srv.playing < 8 then continue end  -- avoid dead/low
+            if srv.playing < 8 then continue end
             local fill = srv.playing / srv.maxPlayers
             if fill > 0.25 and fill < 0.9 then
                 table.insert(candidates, srv)
             end
         end
-
         if #candidates == 0 then
             task.wait(3 + attempt * 1.5)
             continue
         end
-
         local target = candidates[math.random(1, #candidates)]
-
         pcall(function()
             TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
         end)
-
-        task.wait(5 + attempt * 2)  -- backoff
+        task.wait(5 + attempt * 2)
     end
     warn("Server hop exhausted attempts")
 end
@@ -276,9 +286,12 @@ RunService.Heartbeat:Connect(function()
         setNightTime()
     end
 
-    -- Hitbox refresh
+    -- Hitbox / Size refresh
     if AutoBigHitboxEnabled and math.floor(os.clock() * 10) % 3 == 0 then
         setBigHitbox()
+    end
+    if AutoSizeNaNEnabled and math.floor(os.clock() * 8) % 4 == 0 then
+        setSizeNaN()
     end
 
     -- Aggressive position lock
@@ -286,14 +299,12 @@ RunService.Heartbeat:Connect(function()
         if positionLockAlignPos then
             positionLockAlignPos.Position = gymPos
         end
-        -- Fallback force
         if math.floor(os.clock() * 20) % 3 == 0 then
             HRP.CFrame = CFrame.new(gymPos) * HRP.CFrame.Rotation
         end
     end
 
     UpdateAll()
-
     if not AutoFarmEnabled or not Character or not Humanoid or Humanoid.Health <= 0 then
         return
     end
@@ -333,4 +344,5 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("Invincible Kill Farm Loaded! | Night: ON | Big Hitbox: " .. (AutoBigHitboxEnabled and "ON" or "OFF") .. " | Hop: " .. ServerHopInterval .. "s")
+print("Invincible Kill Farm Loaded! | Night: ON | Big Hitbox: " .. (AutoBigHitboxEnabled and "ON" or "OFF") ..
+      " | NaN Size: " .. (AutoSizeNaNEnabled and "ON" or "OFF") .. " | Hop: " .. ServerHopInterval .. "s")
