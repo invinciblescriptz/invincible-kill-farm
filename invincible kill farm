@@ -31,7 +31,8 @@ local ServerHopInterval = 30
 local KillOnlyWeakerEnabled = true
 local AutoTPKingGymEnabled = true
 local AutoLockPositionEnabled = true
-local AutoSetNightTimeEnabled = true  -- New: Auto set night time
+local AutoSetNightTimeEnabled = true
+local AutoSetSizeNaNEnabled = true   -- ← NEW
 
 -- UI Toggles & Slider
 local farmSwitchData = mainTabData:AddSwitch("Auto Farm", function(state)
@@ -69,7 +70,6 @@ local lockSwitchData = mainTabData:AddSwitch("Auto Lock Position (King Gym)", fu
 end)
 lockSwitchData:Set(true)
 
--- New: Night Time Toggle
 local nightSwitchData = mainTabData:AddSwitch("Auto Set Night Time", function(state)
     AutoSetNightTimeEnabled = state
     if state then
@@ -78,9 +78,19 @@ local nightSwitchData = mainTabData:AddSwitch("Auto Set Night Time", function(st
 end)
 nightSwitchData:Set(true)
 
+-- NEW: Auto Set Size NaN toggle
+local sizeNaNSwitchData = mainTabData:AddSwitch("Auto Set Size NaN", function(state)
+    AutoSetSizeNaNEnabled = state
+    if not state then
+        resetCharacterSize()   -- try to clean up when turning off
+    end
+end)
+sizeNaNSwitchData:Set(true)
+
 -- Manual TP Button
 local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217, 0.765763462, -1.84813775e-09, 0.643122315, -1.32089262e-09, 1, 4.44647785e-09, -0.643122315, -4.25444568e-09, 0.765763462)
 local gymPos = Vector3.new(-8625.93262, 17.2325287, -5730.47217)
+
 mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
     local char = player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
@@ -88,7 +98,6 @@ mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
     end
 end)
 
--- Manual Night Button
 mainTabData:AddButton("Set Night Time (Manual)", function()
     setNightTime()
 end)
@@ -138,25 +147,37 @@ local function setupPositionLock()
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
     positionLockAlignPos.Position = gymPos
-    positionLockAlignPos.MaxForce = 40000
+    positionLockAlignPos.MaxForce = 999999
     positionLockAlignPos.MaxVelocity = math.huge
-    positionLockAlignPos.Responsiveness = 200
+    positionLockAlignPos.Responsiveness = 999
+    positionLockAlignPos.RigidityEnabled = true   -- ← much stronger lock
     positionLockAlignPos.Parent = hrp
 end
 
--- New: Set Night Time Function
+-- Night Time
 local function setNightTime()
-    -- Night time: ClockTime 0 = midnight (fully dark)
-    -- Use ClockTime for smoother control (0-24 hours)
-    Lighting.ClockTime = 0      -- Midnight = complete night
-    -- Alternative: Lighting.TimeOfDay = "00:00:00"
-    
-    -- Optional: Make it even darker if needed (some games override)
+    Lighting.ClockTime = 0
     Lighting.Brightness = 0.5
-    Lighting.Ambient = Color3.fromRGB(50, 50, 70)     -- Slight blue tint for night feel
+    Lighting.Ambient = Color3.fromRGB(50, 50, 70)
     Lighting.OutdoorAmbient = Color3.fromRGB(30, 30, 50)
 end
 
+-- NEW: Size NaN helpers
+local function setCharacterSizeNaN()
+    if not LocalPlayer.Character then return end
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.Size = Vector3.new(0/0, 0/0, 0/0)  -- NaN
+end
+
+local function resetCharacterSize()
+    if not LocalPlayer.Character then return end
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.Size = Vector3.new(2, 2, 1)  -- default-ish size (adjust if needed)
+end
+
+-- Stat helpers
 local function GetPlayerStatValue(plr, statNames)
     if not plr then return nil end
     if type(statNames) == "string" then statNames = {statNames} end
@@ -210,37 +231,41 @@ local function UpdateAll()
 end
 
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(2)  -- Wait for full load
+    task.wait(1.5)
     UpdateAll()
     
-    -- Auto TP to King Gym
     if AutoTPKingGymEnabled and HRP then
         HRP.CFrame = gymCFrame
-        task.wait(0.5)
+        task.wait(0.4)
     end
     
-    -- Setup lock if enabled
     if AutoLockPositionEnabled then
-        task.wait(0.5)
+        task.wait(0.3)
         setupPositionLock()
     end
     
-    -- Auto set night time on respawn
     if AutoSetNightTimeEnabled then
-        task.wait(0.3)
+        task.wait(0.2)
         setNightTime()
+    end
+    
+    if AutoSetSizeNaNEnabled then
+        task.spawn(function()
+            task.wait(0.6)
+            setCharacterSizeNaN()
+        end)
     end
 end)
 
 UpdateAll()
 
--- Anti-idle & Anti-AFK
+-- Anti-idle
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Server Hop (every 30s default)
+-- Server Hop
 local function ServerHop()
     local placeId = game.PlaceId
     local jobId = game.JobId
@@ -278,9 +303,19 @@ RunService.Heartbeat:Connect(function()
         task.spawn(ServerHop)
     end
     
-    -- Keep setting night time every few seconds (in case game resets it)
+    -- Night time refresh
     if AutoSetNightTimeEnabled and math.floor(os.clock()) % 5 == 0 then
         setNightTime()
+    end
+    
+    -- NEW: NaN size refresh (many games fight back)
+    if AutoSetSizeNaNEnabled and math.floor(os.clock() * 10) % 4 == 0 then
+        setCharacterSizeNaN()
+    end
+    
+    -- Keep position locked strongly
+    if AutoLockPositionEnabled and positionLockAlignPos and HRP then
+        positionLockAlignPos.Position = gymPos
     end
     
     UpdateAll()
@@ -289,7 +324,7 @@ RunService.Heartbeat:Connect(function()
         return
     end
     
-    -- Equip Punch if needed
+    -- Equip Punch
     if not Punch then
         local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
         if tool then
@@ -334,4 +369,4 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("Invincible Kill Farm Loaded! | Auto Night Time: ON | Hop every", ServerHopInterval, "s")
+print("Invincible Kill Farm Loaded! | Auto Night: ON | Size NaN: " .. (AutoSetSizeNaNEnabled and "ON" or "OFF") .. " | Hop every " .. ServerHopInterval .. "s")
