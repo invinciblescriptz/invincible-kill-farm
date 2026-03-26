@@ -48,6 +48,7 @@ end
 -- Drag to move
 local dragging = false
 local dragStart, startPos
+
 title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
@@ -103,6 +104,7 @@ local AutoFarm = false
 local AutoServerHop = false
 local ServerHopInterval = tonumber(intervalInput.Text) or 30
 local LastServerHopTime = os.clock()
+local KillOnlyWeaker = true
 
 local runService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -214,10 +216,13 @@ local function AttackNearbyPlayers()
                 if head and root and hum and hum.Health > 0 then
                     local wasAnchored = root.Anchored
                     root.Anchored = true
-                    firetouchinterest(head, LocalPlayer.Character:FindFirstChild("LeftHand") or LocalPlayer.Character:FindFirstChild("Left Arm"), 0)
-                    task.wait(0.1)
-                    firetouchinterest(head, LocalPlayer.Character:FindFirstChild("LeftHand") or LocalPlayer.Character:FindFirstChild("Left Arm"), 1)
-                    root.Anchored = wasAnchored
+                    local leftHand = LocalPlayer.Character:FindFirstChild("LeftHand") or LocalPlayer.Character:FindFirstChild("Left Arm")
+                    if leftHand then
+                        firetouchinterest(head, leftHand, 0)
+                        task.wait(0.1)
+                        firetouchinterest(head, leftHand, 1)
+                        root.Anchored = wasAnchored
+                    end
                 end
             end
         end
@@ -234,7 +239,7 @@ local function startAutoKill()
         if not AutoFarm then return end
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return end
-        if not (LocalPlayer.Character:FindFirstChild("Punch")) then
+        if not LocalPlayer.Character:FindFirstChild("Punch") then
             local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
             if tool then
                 hum:EquipTool(tool)
@@ -279,7 +284,6 @@ end)
 
 btnServerHop.MouseButton1Click:Connect(function()
     print("Server hopping...")
-    -- Server hop code
     local function ServerHop()
         local placeId = game.PlaceId
         local myJobId = game.JobId
@@ -353,7 +357,6 @@ runService.Heartbeat:Connect(function()
         if (os.clock() - LastServerHopTime) >= ServerHopInterval then
             LastServerHopTime = os.clock()
             print("Performing server hop")
-            -- Reuse server hop code
             spawn(function()
                 local function ServerHop()
                     local placeId = game.PlaceId
