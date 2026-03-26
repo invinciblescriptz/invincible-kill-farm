@@ -1,173 +1,136 @@
--- Ensure this is a LocalScript inside StarterPlayerScripts
+-- UI Library
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
+local window = library:AddWindow("Invincible Kill Farm", {
+    main_color = Color3.fromRGB(0, 0, 0),
+    min_size = Vector2.new(200, 200),
+    can_resize = false,
+    background_transparency = 1,
+})
 
-local player = game.Players.LocalPlayer
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.Name = "InvincibleUI"
+-- Main Tab
+local mainTabData, mainTab = window:AddTab("Main")
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 700, 0, 550)
-frame.Position = UDim2.new(0.5, -350, 0.5, -275)
-frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-frame.BorderSizePixel = 0
+-- Settings
+local AutoFarmEnabled = true
+local AutoServerHopEnabled = true
+local ServerHopInterval = 30
+local KillOnlyWeakerEnabled = true
+local AutoTPKingGymEnabled = true
+local AutoLockPositionEnabled = true
+local AutoSetNightTimeEnabled = true
+local AutoBigHitboxEnabled = true   -- was NaN, now big size
 
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1,0,0,50)
-title.BackgroundColor3 = Color3.fromRGB(50,0,0)
-title.TextColor3 = Color3.new(1,1,1)
-title.Text = "Invincible Private Killing"
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 24
+-- UI Toggles & Slider
+mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Server Hop", function(state) AutoServerHopEnabled = state end):Set(true)
+mainTabData:AddSlider("Hop Interval (s)", function(value) ServerHopInterval = value end, {min = 5, max = 120}):Set(30)
+mainTabData:AddSwitch("Kill Only Weaker", function(state) KillOnlyWeakerEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state) AutoTPKingGymEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Lock Position", function(state)
+    AutoLockPositionEnabled = state
+    if state then setupPositionLock() else clearPositionLock() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Set Night Time", function(state)
+    AutoSetNightTimeEnabled = state
+    if state then setNightTime() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Big Hitbox", function(state)
+    AutoBigHitboxEnabled = state
+    if not state then resetHitbox() end
+end):Set(true)
 
-local yOffset = 60
+-- Gym location
+local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217, 0.765763462, -1.84813775e-09, 0.643122315, -1.32089262e-09, 1, 4.44647785e-09, -0.643122315, -4.25444568e-09, 0.765763462)
+local gymPos = gymCFrame.Position
 
-local function createButton(text, y)
-    local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 350, 0, 50)
-    btn.Position = UDim2.new(0, 20, 0, y)
-    btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 20
-    return btn
-end
-
-local function createInput(text, y)
-    local input = Instance.new("TextBox", frame)
-    input.Size = UDim2.new(0, 350, 0, 50)
-    input.Position = UDim2.new(0, 370, 0, y)
-    input.PlaceholderText = text
-    input.Text = ""
-    input.BackgroundColor3 = Color3.fromRGB(50,50,50)
-    input.TextColor3 = Color3.new(1,1,1)
-    input.Font = Enum.Font.SourceSansBold
-    input.TextSize = 20
-    return input
-end
-
--- Drag to move
-local dragging = false
-local dragStart, startPos
-
-title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState ~= Enum.UserInputState.End then return end
-            dragging = false
-        end)
-    end
+mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.CFrame = gymCFrame end
 end)
 
-title.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        frame.Position = startPos + UDim2.new(0, delta.X, 0, delta.Y)
-    end
-end)
+mainTabData:AddButton("Set Night Time (Manual)", setNightTime)
 
--- Buttons
-local btnTPGym = createButton("TP Muscle King Gym", yOffset)
-local btnSetNight = createButton("Set Night Time", yOffset + 60)
-local btnStartKill = createButton("Start Auto Kill", yOffset + 120)
-local btnStopKill = createButton("Stop Auto Kill", yOffset + 180)
-local btnServerHop = createButton("Server Hop", yOffset + 240)
-local btnToggleFarm = createButton("Toggle Auto Farm", yOffset + 300)
-local btnToggleServerHop = createButton("Toggle Server Hop", yOffset + 360)
+-- Credits
+local creditsTab = window:AddTab("Credits")
+creditsTab:AddLabel("made by Invincible")
+creditsTab:AddLabel("https://discord.gg/bUythM4H")
 
-local intervalInput = createInput("Server Hop Interval (s)", yOffset + 420)
-intervalInput.Text = "30"
-
-local killOnlyWeakerCheckbox = Instance.new("TextButton", frame)
-killOnlyWeakerCheckbox.Size = UDim2.new(0, 50, 0, 50)
-killOnlyWeakerCheckbox.Position = UDim2.new(0, 20, 0, yOffset + 480)
-killOnlyWeakerCheckbox.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-killOnlyWeakerCheckbox.BorderSizePixel = 0
-
-local killOnlyWeakerLabel = Instance.new("TextLabel", frame)
-killOnlyWeakerLabel.Size = UDim2.new(0, 250, 0, 50)
-killOnlyWeakerLabel.Position = UDim2.new(0, 80, 0, yOffset + 480)
-killOnlyWeakerLabel.BackgroundTransparency = 1
-killOnlyWeakerLabel.Text = "Kill Only Weaker"
-killOnlyWeakerLabel.TextColor3 = Color3.white
-killOnlyWeakerLabel.Font = Enum.Font.SourceSansBold
-killOnlyWeakerLabel.TextSize = 20
-
-local KillOnlyWeaker = true
-
--- Variables
-local AutoFarm = false
-local AutoServerHop = false
-local ServerHopInterval = tonumber(intervalInput.Text) or 30
-local LastServerHopTime = 0
-
-local runService = game:GetService("RunService")
-local Players = game:GetService("Players")
+-- Services
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local VirtualUser    = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Lighting = game:GetService("Lighting")
-local LocalPlayer = Players.LocalPlayer
+local HttpService    = game:GetService("HttpService")
+local Lighting       = game:GetService("Lighting")
+local LocalPlayer    = Players.LocalPlayer
 
-local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217)
+if getgenv().AutoKillLoaded then return end
+getgenv().AutoKillLoaded = true
 
-local positionLockAttachment, positionLockAlignPos
+local LastServerHop = os.clock()
+
+-- Position Lock
+local positionLockAlignPos, positionLockAttachment
 
 local function clearPositionLock()
-    if positionLockAlignPos then positionLockAlignPos:Destroy() end
-    if positionLockAttachment then positionLockAttachment:Destroy() end
+    if positionLockAlignPos then positionLockAlignPos:Destroy() positionLockAlignPos = nil end
+    if positionLockAttachment then positionLockAttachment:Destroy() positionLockAttachment = nil end
 end
 
 local function setupPositionLock()
     clearPositionLock()
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+
+    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)  -- Try claim ownership
+
     positionLockAttachment = Instance.new("Attachment", hrp)
+
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
-    positionLockAlignPos.Position = gymCFrame.Position
+    positionLockAlignPos.Position = gymPos
     positionLockAlignPos.MaxForce = 1e7
+    positionLockAlignPos.MaxVelocity = math.huge
     positionLockAlignPos.Responsiveness = 200
     positionLockAlignPos.RigidityEnabled = true
     positionLockAlignPos.Parent = hrp
 end
 
+-- Night Time
 local function setNightTime()
     Lighting.ClockTime = 0
     Lighting.Brightness = 0.5
     Lighting.Ambient = Color3.fromRGB(50,50,70)
     Lighting.OutdoorAmbient = Color3.fromRGB(30,30,50)
-    print("Night time set")
 end
 
+-- Hitbox (replaces useless NaN)
+local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)  -- tune: 15-40 common
+
 local function setBigHitbox()
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.Size = Vector3.new(25,25,25)
-        print("Big hitbox set")
-    end
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = TARGET_HITBOX_SIZE end
 end
 
 local function resetHitbox()
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.Size = Vector3.new(2,2,1)
-        print("Hitbox reset")
-    end
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = Vector3.new(2, 2, 1) end
 end
 
+-- Stats / Kill logic (unchanged)
 local function GetPlayerStatValue(plr, statNames)
     if not plr then return nil end
     if type(statNames) == "string" then statNames = {statNames} end
-    for _, name in pairs(statNames) do
+    for _, name in statNames do
         local val = plr:GetAttribute(name)
         if val ~= nil then return tonumber(val) end
     end
     local stats = plr:FindFirstChild("leaderstats")
     if stats then
-        for _, name in pairs(statNames) do
+        for _, name in statNames do
             local v = stats:FindFirstChild(name)
             if v and v:IsA("ValueBase") then return tonumber(v.Value) end
         end
@@ -185,200 +148,299 @@ local function GetTargetHealth(target)
 end
 
 local function ShouldKillPlayer(target)
-    if not KillOnlyWeaker then return true end
+    if not KillOnlyWeakerEnabled then return true end
     local myDmg = GetLocalPlayerDamage()
     local theirHP = GetTargetHealth(target)
     return math.ceil(theirHP / myDmg) <= 5
 end
 
-local LastAttackTime = 0
-local function AttackNearbyPlayers()
-    if (os.clock() - LastAttackTime) < 0.08 then return end
-    LastAttackTime = os.clock()
+-- Character vars
+local Character, Humanoid, Hand, Punch, HRP
+local LastAttack = 0
 
-    local char = LocalPlayer.Character
-    local punch = char and char:FindFirstChild("Punch")
-    if punch then
-        print("Activating punch")
-        punch:Activate()
-    end
-
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= LocalPlayer and other.Character then
-            if ShouldKillPlayer(other) then
-                local c = other.Character
-                local head = c:FindFirstChild("Head")
-                local root = c:FindFirstChild("HumanoidRootPart")
-                local hum = c:FindFirstChildOfClass("Humanoid")
-                if head and root and hum and hum.Health > 0 then
-                    local wasAnchored = root.Anchored
-                    root.Anchored = true
-                    firetouchinterest(head, LocalPlayer.Character:FindFirstChild("LeftHand") or LocalPlayer.Character:FindFirstChild("Left Arm"), 0)
-                    task.wait(0.1)
-                    firetouchinterest(head, LocalPlayer.Character:FindFirstChild("LeftHand") or LocalPlayer.Character:FindFirstChild("Left Arm"), 1)
-                    root.Anchored = wasAnchored
-                end
-            end
-        end
-    end
+local function UpdateAll()
+    Character = LocalPlayer.Character
+    if not Character then return end
+    Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    Hand = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
+    Punch = Character:FindFirstChild("Punch")
+    HRP = Character:FindFirstChild("HumanoidRootPart")
 end
 
-local autoKillRunning = false
-local autoKillConnection
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(2)
+    UpdateAll()
+    if AutoTPKingGymEnabled and HRP then
+        HRP.CFrame = gymCFrame
+        task.wait(0.5)
+    end
+    if AutoLockPositionEnabled then
+        task.wait(0.5)
+        setupPositionLock()
+    end
+    if AutoSetNightTimeEnabled then
+        task.wait(0.3)
+        setNightTime()
+    end
+    if AutoBigHitboxEnabled then
+        task.spawn(function()
+            task.wait(0.8)
+            setBigHitbox()
+        end)
+    end
+end)
 
-local function startAutoKill()
-    if autoKillRunning then return end
-    autoKillRunning = true
-    autoKillConnection = runService.Heartbeat:Connect(function()
-        if not AutoFarm then return end
-        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return end
-        if not (LocalPlayer.Character:FindFirstChild("Punch")) then
-            local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
-            if tool then
-                hum:EquipTool(tool)
-                print("Equipped punch")
-            end
-            return
-        end
-        AttackNearbyPlayers()
+UpdateAll()
+
+-- Anti-AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Suppress teleport popups
+pcall(function()
+    TeleportService.TeleportInitFailed:Connect(function(player, result, msg)
+        -- Silent fail handling
     end)
-    print("Auto Kill started")
-end
-
-local function stopAutoKill()
-    if autoKillConnection then autoKillConnection:Disconnect() end
-    autoKillRunning = false
-    print("Auto Kill stopped")
-end
-
--- Button callbacks
-btnTPGym.MouseButton1Click:Connect(function()
-    print("TP to Gym")
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = gymCFrame
-        print("Teleported to gym")
-    end
 end)
 
-btnSetNight.MouseButton1Click:Connect(function()
-    setNightTime()
-end)
+-- Improved Server Hop
+local function ServerHop()
+    local placeId = game.PlaceId
+    local myJobId = game.JobId
 
-btnStartKill.MouseButton1Click:Connect(function()
-    AutoFarm = true
-    startAutoKill()
-end)
+    for attempt = 1, 6 do
+        local success, response = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(
+                "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
+            ))
+        end)
 
-btnStopKill.MouseButton1Click:Connect(function()
-    AutoFarm = false
-    stopAutoKill()
-end)
+        if not success or not response or not response.data then
+            task.wait(2 + attempt)
+            continue
+        end
 
-btnServerHop.MouseButton1Click:Connect(function()
-    print("Server hopping...")
-    -- Your server hop code here
-    local function ServerHop()
-        local placeId = game.PlaceId
-        local myJobId = game.JobId
-        for attempt=1,6 do
-            local success, response = pcall(function()
-                return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Desc&limit=100"))
-            end)
-            if not success or not response or not response.data then wait(2 + attempt) continue end
-
-            local candidates = {}
-            for _, srv in pairs(response.data) do
-                if srv.id == myJobId then continue end
-                if srv.playing >= srv.maxPlayers then continue end
-                if srv.playing < 8 then continue end
-                local fill = srv.playing / srv.maxPlayers
-                if fill > 0.25 and fill < 0.9 then
-                    table.insert(candidates, srv)
-                end
+        local candidates = {}
+        for _, srv in response.data do
+            if srv.id == myJobId then continue end
+            if srv.playing >= srv.maxPlayers then continue end
+            if srv.playing < 8 then continue end  -- avoid dead/low
+            local fill = srv.playing / srv.maxPlayers
+            if fill > 0.25 and fill < 0.9 then
+                table.insert(candidates, srv)
             end
-            if #candidates == 0 then wait(3 + attempt*1.5) continue end
-            local target = candidates[math.random(1, #candidates)]
-            pcall(function()
-                TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
-            end)
-            wait(5 + attempt*2)
+        end
+
+        if #candidates == 0 then
+            task.wait(3 + attempt * 1.5)
+            continue
+        end
+
+        local target = candidates[math.random(1, #candidates)]
+
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
+        end)
+
+        task.wait(5 + attempt * 2)  -- backoff
+    end
+    warn("Server hop exhausted attempts")
+end
+
+-- Main Loop
+RunService.Heartbeat:Connect(function()
+    -- Hop
+    if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
+        LastServerHop = os.clock()
+        task.spawn(ServerHop)
+    end
+
+    -- Night refresh
+    if AutoSetNightTimeEnabled and math.floor(os.clock()) % 5 == 0 then
+        setNightTime()
+    end
+
+    -- Hitbox refresh
+    if AutoBigHitboxEnabled and math.floor(os.clock() * 10) % 3 == 0 then
+        setBigHitbox()
+    end
+
+    -- Aggressive position lock
+    if AutoLockPositionEnabled and HRP then
+        if positionLockAlignPos then
+            positionLockAlignPos.Position = gymPos
+        end
+        -- Fallback force
+        if math.floor(os.clock() * 20) % 3 == 0 then
+            HRP.CFrame = CFrame.new(gymPos) * HRP.CFrame.Rotation
         end
     end
-    spawn(ServerHop)
-end)
 
-intervalInput.FocusLost:Connect(function()
-    local val = tonumber(intervalInput.Text)
-    if val then
-        ServerHopInterval = val
-        print("Server hop interval set to", val)
+    UpdateAll()
+
+    if not AutoFarmEnabled or not Character or not Humanoid or Humanoid.Health <= 0 then
+        return
     end
-end)
 
--- Toggle for AutoFarm
-btnToggleFarm.MouseButton1Click:Connect(function()
-    AutoFarm = not AutoFarm
-    if AutoFarm then
-        startAutoKill()
-        print("AutoFarm enabled")
-    else
-        stopAutoKill()
-        print("AutoFarm disabled")
+    if not Punch then
+        local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
+        if tool then Humanoid:EquipTool(tool) end
+        return
     end
-end)
 
--- Toggle for Server Hop
-btnToggleServerHop.MouseButton1Click:Connect(function()
-    AutoServerHop = not AutoServerHop
-    print("AutoServerHop is now", AutoServerHop)
-end)
+    if (os.clock() - LastAttack) < 0.08 then return end
+    LastAttack = os.clock()
 
--- Main loop for server hop timing
-runService.Heartbeat:Connect(function()
-    if AutoServerHop then
-        if (os.clock() - LastServerHopTime) >= ServerHopInterval then
-            LastServerHopTime = os.clock()
-            print("Performing server hop")
-            -- Call server hop code here
-            local function ServerHop()
-                local placeId = game.PlaceId
-                local myJobId = game.JobId
-                for attempt=1,6 do
-                    local success, response = pcall(function()
-                        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Desc&limit=100"))
-                    end)
-                    if not success or not response or not response.data then wait(2 + attempt) continue end
+    local attackTime = Punch:FindFirstChild("attackTime")
+    if attackTime then attackTime.Value = 0 end
+    Punch:Activate()
 
-                    local candidates = {}
-                    for _, srv in pairs(response.data) do
-                        if srv.id == myJobId then continue end
-                        if srv.playing >= srv.maxPlayers then continue end
-                        if srv.playing < 8 then continue end
-                        local fill = srv.playing / srv.maxPlayers
-                        if fill > 0.25 and fill < 0.9 then
-                            table.insert(candidates, srv)
-                        end
-                    end
-                    if #candidates == 0 then wait(3 + attempt*1.5) continue end
-                    local target = candidates[math.random(1, #candidates)]
-                    pcall(function()
-                        TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
-                    end)
-                    wait(5 + attempt*2)
-                end
-            end
-            spawn(ServerHop)
+    for _, other in Players:GetPlayers() do
+        if other == LocalPlayer then continue end
+        if not ShouldKillPlayer(other) then continue end
+
+        local char = other.Character
+        if not char then continue end
+
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local head = char:FindFirstChild("Head")
+        local root = char:FindFirstChild("HumanoidRootPart")
+
+        if hum and head and root and hum.Health > 0 and Hand then
+            local wasAnchored = root.Anchored
+            root.Anchored = true
+            firetouchinterest(head, Hand, 0)
+            task.wait()
+            firetouchinterest(head, Hand, 1)
+            root.Anchored = wasAnchored
         end
     end
 end)
 
--- Auto set night and big hitbox
-runService.Heartbeat:Connect(function()
-    if _G.AutoSetNight then setNightTime() end
-    if _G.AutoBigHitbox then setBigHitbox() end
-    if _G.AutoLockPosition then setupPositionLock() end
+print("Invincible Kill Farm Loaded! | Night: ON | Big Hitbox: " .. (AutoBigHitboxEnabled and "ON" or "OFF") .. " | Hop: " .. ServerHopInterval .. "s")
+
+-- Muscle Legends Kill Counter UI
+-- LocalScript - Paste into your executor (e.g., Synapse, Krnl) in Muscle Legends
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Wait for leaderstats
+local leaderstats = player:WaitForChild("leaderstats")
+local killsValue = leaderstats:WaitForChild("Kills")  -- As per game scripts
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KillCounterUI"
+screenGui.Parent = playerGui
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Name = "MainFrame"
+frame.Size = UDim2.new(0, 250, 0, 80)
+frame.Position = UDim2.new(1, -270, 0, 20)  -- Top right
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+-- UICorner for rounded edges
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = frame
+
+-- UIGradient for cool effect
+local uiGradient = Instance.new("UIGradient")
+uiGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20))
+}
+uiGradient.Rotation = 45
+uiGradient.Parent = frame
+
+-- Stroke for border
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(255, 215, 0)  -- Gold border
+uiStroke.Thickness = 2
+uiStroke.Parent = frame
+
+-- Title Label
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "💪 KILLS"
+titleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = frame
+
+-- Kills Label
+local killsLabel = Instance.new("TextLabel")
+killsLabel.Name = "KillsLabel"
+killsLabel.Size = UDim2.new(1, 0, 0, 40)
+killsLabel.Position = UDim2.new(0, 0, 0, 30)
+killsLabel.BackgroundTransparency = 1
+killsLabel.Text = "0"
+killsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+killsLabel.TextScaled = true
+killsLabel.Font = Enum.Font.GothamBlack
+killsLabel.Parent = frame
+
+-- Function to format numbers with commas
+local function formatNumber(num)
+    return tostring(num):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+end
+
+-- Update function
+local function updateKills()
+    local formattedKills = formatNumber(killsValue.Value)
+    killsLabel.Text = formattedKills
+    -- Tween for pop effect
+    local tween = TweenService:Create(killsLabel, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {TextTransparency = 0.5})
+    tween:Play()
+    tween.Completed:Connect(function()
+        local tween2 = TweenService:Create(killsLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
+        tween2:Play()
+    end)
+end
+
+-- Connect update
+killsValue.Changed:Connect(updateKills)
+
+-- Initial update
+updateKills()
+
+-- Make draggable
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
 end)
 
-print("UI loaded! Features should now work.")
+frame.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+print("Muscle Legends Kill Counter UI loaded! 💀")
