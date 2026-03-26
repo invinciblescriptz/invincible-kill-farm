@@ -1,5 +1,6 @@
 -- Place this as a LocalScript inside StarterPlayer > StarterPlayerScripts
 
+--// SERVICES
 local Player = game.Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local RunService = game:GetService("RunService")
@@ -9,14 +10,15 @@ local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local LocalChar = Player.Character or Player.CharacterAdded:Wait()
 
--- UI Setup
+--// UI
+
 local gui = Instance.new("ScreenGui", PlayerGui)
-gui.Name = "MuscleLegendsUI"
+gui.Name = "MuscleLegendsAutomation"
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 700, 0, 600)
-frame.Position = UDim2.new(0.5, -350, 0.5, -300)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.Size = UDim2.new(0, 800, 0, 800)
+frame.Position = UDim2.new(0.5, -400, 0.5, -400)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 frame.BorderSizePixel = 0
 
 local title = Instance.new("TextLabel", frame)
@@ -44,7 +46,7 @@ end
 local function createInput(text, y)
     local input = Instance.new("TextBox", frame)
     input.Size = UDim2.new(0, 350, 0, 50)
-    input.Position = UDim2.new(0, 370, 0, y)
+    input.Position = UDim2.new(0, 400, 0, y)
     input.PlaceholderText = text
     input.Text = "30"
     input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
@@ -54,7 +56,8 @@ local function createInput(text, y)
     return input
 end
 
--- UI Elements
+--// UI Elements Creation
+
 local btnTPGym = createButton("TP to Gym", yOffset)
 local btnSetNight = createButton("Set Night Time", yOffset + 60)
 local btnAutoKill = createButton("Start Auto Kill", yOffset + 120)
@@ -65,7 +68,7 @@ local btnToggleServerHop = createButton("Toggle Server Hop", yOffset + 360)
 local intervalInput = createInput("Server Hop Interval (s)", yOffset + 420)
 intervalInput.Text = "30"
 
--- Toggle button for "Kill Only Weaker"
+-- Kill Only Weaker toggle button
 local killOnlyWeaker = true
 local killToggleBtn = Instance.new("TextButton", frame)
 killToggleBtn.Size = UDim2.new(0, 50, 0, 50)
@@ -86,7 +89,8 @@ killLabel.TextColor3 = Color3.white
 killLabel.Font = Enum.Font.SourceSansBold
 killLabel.TextSize = 20
 
--- Variables
+--// Variables
+
 local autoFarm = false
 local autoKillRunning = false
 local autoKillConnection
@@ -94,42 +98,51 @@ local serverHopEnabled = false
 local lastServerHopTime = os.clock()
 local serverHopInterval = tonumber(intervalInput.Text) or 30
 
--- Functions
+local isDragging = false
+local dragStartPos
+local frameStartPos
+
 local function setNight()
     Lighting.ClockTime = 0
     Lighting.Brightness = 0.5
     Lighting.Ambient = Color3.fromRGB(50, 50, 70)
     Lighting.OutdoorAmbient = Color3.fromRGB(30, 30, 50)
-    print("Night time set")
+    print("[UI] Night mode activated.")
 end
 
-local function tpToGym()
+local function teleportToGym()
     local hrp = LocalChar:FindFirstChild("HumanoidRootPart")
     if hrp then
         hrp.CFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217)
-        print("Teleported to Gym")
+        print("[UI] Teleported to Gym.")
     end
 end
 
 local function getPlayerDamage()
-    local attr = LocalChar:GetAttribute("Damage") or LocalChar:GetAttribute("DMG") or LocalChar:GetAttribute("Attack") or LocalChar:GetAttribute("Strength") or LocalChar:GetAttribute("Str")
-    if attr then
-        return tonumber(attr)
+    local damageAttrs = {"Damage", "DMG", "Attack", "Strength", "Str"}
+    for _, attr in pairs(damageAttrs) do
+        local val = LocalChar:GetAttribute(attr)
+        if val then
+            return tonumber(val)
+        end
     end
     local stats = LocalChar:FindFirstChild("leaderstats")
     if stats then
-        for _, v in pairs(stats:GetChildren()) do
-            if v.Name:lower():find("damage") or v.Name:lower():find("attack") or v.Name:lower():find("str") then
-                return tonumber(v.Value)
+        for _, stat in pairs(stats:GetChildren()) do
+            if stat.Name:lower():find("damage") or stat.Name:lower():find("attack") or stat.Name:lower():find("str") then
+                return tonumber(stat.Value)
             end
         end
     end
-    return 1 -- default damage
+    return 1
 end
 
-local function getTargetHealth(target)
-    local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
-    return hum and hum.MaxHealth or 100
+local function getTargetHealth(targetPlayer)
+    local hum = targetPlayer.Character and targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        return hum.MaxHealth
+    end
+    return 100
 end
 
 local function shouldKill(targetPlayer)
@@ -144,16 +157,15 @@ local function attackNearby()
     if os.clock() - lastAttackTime < 0.1 then return end
     lastAttackTime = os.clock()
 
-    -- Activate Punch
     local punch = LocalChar:FindFirstChild("Punch")
     if punch then punch:Activate() end
 
-    for _, other in pairs(Players:GetPlayers()) do
-        if other ~= Player and other.Character then
-            if shouldKill(other) then
-                local head = other.Character:FindFirstChild("Head")
-                local root = other.Character:FindFirstChild("HumanoidRootPart")
-                local hum = other.Character:FindFirstChildOfClass("Humanoid")
+    for _, targetPlayer in pairs(Players:GetPlayers()) do
+        if targetPlayer ~= Player and targetPlayer.Character then
+            if shouldKill(targetPlayer) then
+                local head = targetPlayer.Character:FindFirstChild("Head")
+                local root = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local hum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
                 if head and root and hum and hum.Health > 0 then
                     local wasAnchored = root.Anchored
                     root.Anchored = true
@@ -187,17 +199,17 @@ local function startAutoKill()
             end
         end
     end)
-    print("Auto kill started")
+    print("[UI] Auto kill started.")
 end
 
 local function stopAutoKill()
     if autoKillConnection then autoKillConnection:Disconnect() end
     autoKillRunning = false
-    print("Auto kill stopped")
+    print("[UI] Auto kill stopped.")
 end
 
 local function serverHop()
-    print("Hopping server...")
+    print("[UI] Hopping server...")
     local placeId = game.PlaceId
     local myJobId = game.JobId
     for attempt=1,6 do
@@ -229,8 +241,8 @@ local function serverHop()
     end
 end
 
--- Button connections
-btnTPGym.MouseButton1Click:Connect(tpToGym)
+-- UI Button Event Handlers
+btnTPGym.MouseButton1Click:Connect(teleportToGym)
 btnSetNight.MouseButton1Click:Connect(setNight)
 btnAutoKill.MouseButton1Click:Connect(function()
     autoFarm = true
@@ -246,18 +258,16 @@ intervalInput.FocusLost:Connect(function()
     local val = tonumber(intervalInput.Text)
     if val then
         serverHopInterval = val
-        print("Server hop interval set to", val)
+        print("[UI] Server hop interval set to", val)
     end
 end)
 
--- Toggle server hop
 local function toggleServerHop()
     serverHopEnabled = not serverHopEnabled
-    print("Server Hop toggled:", serverHopEnabled)
+    print("[UI] ServerHop toggle:", serverHopEnabled)
 end
-createButton("Toggle Server Hop", yOffset + 420).MouseButton1Click:Connect(toggleServerHop)
+createButton("Toggle Server Hop", yOffset + 420):MouseButton1Click:Connect(toggleServerHop)
 
--- Toggle Kill Only Weaker
 killToggleBtn.MouseButton1Click:Connect(function()
     killOnlyWeaker = not killOnlyWeaker
     if killOnlyWeaker then
@@ -265,7 +275,7 @@ killToggleBtn.MouseButton1Click:Connect(function()
     else
         killToggleBtn.Text = "☐"
     end
-    print("Kill Only Weaker:", killOnlyWeaker)
+    print("[UI] Kill Only Weaker:", killOnlyWeaker)
 end)
 
 -- Main loop for server hop timing
@@ -292,8 +302,8 @@ RunService.Heartbeat:Connect(function()
         end
     end
     if _G.AutoLockPosition then
-        -- Optional: setup position lock
+        -- Optional: Implement position lock if needed
     end
 end)
 
-print("UI loaded! Features should now work.")
+print("[UI] Fully loaded! All features active.")
