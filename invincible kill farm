@@ -1,54 +1,51 @@
--- Full feature-rich GUI with draggable functionality, bigger red buttons
+-- Create GUI
 local player = game.Players.LocalPlayer
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.Name = "MyFeatureUI"
+gui.Name = "InvincibleUI"
 
 local frame = Instance.new("Frame", gui)
 frame.Size = UDim2.new(0, 700, 0, 550)
 frame.Position = UDim2.new(0.5, -350, 0.5, -275)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 frame.BorderSizePixel = 0
 
 local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 50)
-title.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
-title.TextColor3 = Color3.new(1, 1, 1)
+title.Size = UDim2.new(1,0,0,50)
+title.BackgroundColor3 = Color3.fromRGB(50,0,0)
+title.TextColor3 = Color3.new(1,1,1)
 title.Text = "Invincible Private Killing"
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 24
-title.Position = UDim2.new(0, 0, 0, 0)
 
 local yOffset = 60
 
--- Helper functions to create bigger, red buttons
-local function createButton(text, yPos)
+-- Helper to create bigger red buttons
+local function createButton(text, y)
     local btn = Instance.new("TextButton", frame)
     btn.Size = UDim2.new(0, 350, 0, 50)
-    btn.Position = UDim2.new(0, 20, 0, yPos)
+    btn.Position = UDim2.new(0, 20, 0, y)
     btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    btn.TextColor3 = Color3.new(1,1,1)
     btn.Font = Enum.Font.SourceSansBold
     btn.TextSize = 20
-    btn.BorderSizePixel = 0
     return btn
 end
 
-local function createInput(placeholder, yPos)
+local function createInput(text, y)
     local input = Instance.new("TextBox", frame)
     input.Size = UDim2.new(0, 350, 0, 50)
-    input.Position = UDim2.new(0, 370, 0, yPos)
-    input.PlaceholderText = placeholder
+    input.Position = UDim2.new(0, 370, 0, y)
+    input.PlaceholderText = text
     input.Text = ""
-    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    input.TextColor3 = Color3.new(1, 1, 1)
+    input.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    input.TextColor3 = Color3.new(1,1,1)
     input.Font = Enum.Font.SourceSansBold
     input.TextSize = 20
-    input.BorderSizePixel = 0
     return input
 end
 
--- Draggable title
+-- Drag to move
 local dragging = false
 local dragStart, startPos
 title.InputBegan:Connect(function(input)
@@ -69,7 +66,7 @@ title.InputChanged:Connect(function(input)
     end
 end)
 
--- Create Buttons
+-- Buttons
 local btnTPGym = createButton("TP Muscle King Gym", yOffset)
 local btnSetNight = createButton("Set Night Time", yOffset + 60)
 local btnStartKill = createButton("Start Auto Kill", yOffset + 120)
@@ -93,25 +90,21 @@ killOnlyWeakerLabel.Text = "Kill Only Weaker"
 killOnlyWeakerLabel.TextColor3 = Color3.white
 killOnlyWeakerLabel.Font = Enum.Font.SourceSansBold
 killOnlyWeakerLabel.TextSize = 20
-killOnlyWeaker = true
+local KillOnlyWeaker = true
 
--- Toggle Kill Only Weaker
 killOnlyWeakerCheckbox.MouseButton1Click:Connect(function()
     KillOnlyWeaker = not KillOnlyWeaker
-    killOnlyWeakerCheckbox.BackgroundColor3 = KillOnlyWeaker and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+    killOnlyWeakerCheckbox.BackgroundColor3 = KillOnlyWeaker and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(150, 0, 0)
 end)
 
--- Main variables
+-- Variables
 local AutoFarm = false
 local AutoServerHop = false
 local AutoLockPosition = false
 local AutoSetNight = false
 local AutoBigHitbox = false
-local ServerHopInterval = tonumber(intervalInput.Text) or 30
-local LastServerHopTime = 0
 
--- Your core functions and variables
-local RunService = game:GetService("RunService")
+local runService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -194,14 +187,13 @@ local function ShouldKillPlayer(target)
     return math.ceil(theirHP / myDmg) <= 5
 end
 
-local LastAttack = 0
-local function AutoAttack()
-    if (os.clock() - LastAttack) < 0.08 then return end
-    LastAttack = os.clock()
+local LastAttackTime = 0
+local function AttackNearbyPlayers()
+    if (os.clock() - LastAttackTime) < 0.08 then return end
+    LastAttackTime = os.clock()
     local char = LocalPlayer.Character
     local punch = char and char:FindFirstChild("Punch")
     if punch then punch:Activate() end
-
     for _, other in pairs(Players:GetPlayers()) do
         if other ~= LocalPlayer and other.Character then
             if ShouldKillPlayer(other) then
@@ -230,10 +222,9 @@ local function startAutoKill()
     autoKillRunning = true
     autoKillConnection = RunService.Heartbeat:Connect(function()
         if not AutoFarm then return end
-        local char = LocalPlayer.Character
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return end
-        if not (char:FindFirstChild("Punch")) then
+        if not (LocalPlayer.Character:FindFirstChild("Punch")) then
             local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
             if tool then
                 local humanoid = hum
@@ -241,7 +232,7 @@ local function startAutoKill()
             end
             return
         end
-        AutoAttack()
+        AttackNearbyPlayers()
     end)
 end
 
@@ -250,7 +241,7 @@ local function stopAutoKill()
     autoKillRunning = false
 end
 
--- Button bindings
+-- Button functions
 btnTPGym.MouseButton1Click:Connect(function()
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if hrp then hrp.CFrame = gymCFrame end
@@ -298,21 +289,19 @@ btnServerHop.MouseButton1Click:Connect(function()
     ServerHop()
 end)
 
--- Update interval
+-- Update interval for server hop
 intervalInput.FocusLost:Connect(function()
     local val = tonumber(intervalInput.Text)
-    if val then
-        ServerHopInterval = val
-    end
+    if val then ServerHopInterval = val end
 end)
 
--- Main update loop
+-- Main loop
+local lastHopTime = 0
 RunService.Heartbeat:Connect(function()
     -- Server hop
-    if AutoServerHop and (os.clock() - LastServerHopTime) >= ServerHopInterval then
-        LastServerHopTime = os.clock()
+    if AutoServerHop and (os.clock() - lastHopTime) >= ServerHopInterval then
+        lastHopTime = os.clock()
         task.spawn(function()
-            -- call your server hop function here
             local function ServerHop()
                 local placeId = game.PlaceId
                 local myJobId = game.JobId
@@ -344,19 +333,16 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
-    -- Night time auto
+    -- Auto set night time
     if AutoSetNight then setNightTime() end
 
-    -- Hitbox auto
+    -- Auto big hitbox
     if AutoBigHitbox then setBigHitbox() end
 
-    -- Position lock
+    -- Auto lock position
     if AutoLockPosition then
-        if not (game:GetService("RunService").Stepped:Wait()) then
-            setupPositionLock()
-        end
+        setupPositionLock()
     end
 end)
 
--- Final message
-print("Invincible Private Killing UI loaded! Ready to use.")
+print("UI loaded! Features should now work.")
