@@ -78,11 +78,16 @@ local btnToggleServerHop = createButton("Toggle Server Hop", yOffset + 360)
 local intervalInput = createInput("Server Hop Interval (s)", yOffset + 420)
 intervalInput.Text = "30"
 
-local killOnlyWeakerCheckbox = Instance.new("TextButton", frame)
-killOnlyWeakerCheckbox.Size = UDim2.new(0, 50, 0, 50)
-killOnlyWeakerCheckbox.Position = UDim2.new(0, 20, 0, yOffset + 480)
-killOnlyWeakerCheckbox.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-killOnlyWeakerCheckbox.BorderSizePixel = 0
+-- Kill Only Weaker Checkbox (as toggle button)
+local killOnlyWeakerBtn = Instance.new("TextButton", frame)
+killOnlyWeakerBtn.Size = UDim2.new(0, 50, 0, 50)
+killOnlyWeakerBtn.Position = UDim2.new(0, 20, 0, yOffset + 480)
+killOnlyWeakerBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+killOnlyWeakerBtn.BorderSizePixel = 0
+killOnlyWeakerBtn.Text = "☑" -- default checked
+killOnlyWeakerBtn.TextColor3 = Color3.new(1,1,1)
+killOnlyWeakerBtn.Font = Enum.Font.SourceSansBold
+killOnlyWeakerBtn.TextSize = 24
 
 local killOnlyWeakerLabel = Instance.new("TextLabel", frame)
 killOnlyWeakerLabel.Size = UDim2.new(0, 250, 0, 50)
@@ -92,13 +97,12 @@ killOnlyWeakerLabel.Text = "Kill Only Weaker"
 killOnlyWeakerLabel.TextColor3 = Color3.white
 killOnlyWeakerLabel.Font = Enum.Font.SourceSansBold
 killOnlyWeakerLabel.TextSize = 20
-local KillOnlyWeaker = true
 
 -- Variables
 local AutoFarm = false
 local AutoServerHop = false
 local ServerHopInterval = tonumber(intervalInput.Text) or 30
-local LastServerHopTime = 0
+local LastServerHopTime = os.clock()
 
 local runService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -275,7 +279,7 @@ end)
 
 btnServerHop.MouseButton1Click:Connect(function()
     print("Server hopping...")
-    -- your server hop code here
+    -- Server hop code
     local function ServerHop()
         local placeId = game.PlaceId
         local myJobId = game.JobId
@@ -332,41 +336,54 @@ btnToggleServerHop.MouseButton1Click:Connect(function()
     print("AutoServerHop is now", AutoServerHop)
 end)
 
+-- Kill Only Weaker toggle button
+killOnlyWeakerBtn.MouseButton1Click:Connect(function()
+    KillOnlyWeaker = not KillOnlyWeaker
+    if KillOnlyWeaker then
+        killOnlyWeakerBtn.Text = "☑"
+    else
+        killOnlyWeakerBtn.Text = "☐"
+    end
+    print("Kill Only Weaker:", KillOnlyWeaker)
+end)
+
 -- Main loop for server hop timing
 runService.Heartbeat:Connect(function()
     if AutoServerHop then
         if (os.clock() - LastServerHopTime) >= ServerHopInterval then
             LastServerHopTime = os.clock()
             print("Performing server hop")
-            -- Call server hop code here, or run in a coroutine
-            local function ServerHop()
-                local placeId = game.PlaceId
-                local myJobId = game.JobId
-                for attempt=1,6 do
-                    local success, response = pcall(function()
-                        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Desc&limit=100"))
-                    end)
-                    if not success or not response or not response.data then wait(2 + attempt) continue end
+            -- Reuse server hop code
+            spawn(function()
+                local function ServerHop()
+                    local placeId = game.PlaceId
+                    local myJobId = game.JobId
+                    for attempt=1,6 do
+                        local success, response = pcall(function()
+                            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Desc&limit=100"))
+                        end)
+                        if not success or not response or not response.data then wait(2 + attempt) continue end
 
-                    local candidates = {}
-                    for _, srv in pairs(response.data) do
-                        if srv.id == myJobId then continue end
-                        if srv.playing >= srv.maxPlayers then continue end
-                        if srv.playing < 8 then continue end
-                        local fill = srv.playing / srv.maxPlayers
-                        if fill > 0.25 and fill < 0.9 then
-                            table.insert(candidates, srv)
+                        local candidates = {}
+                        for _, srv in pairs(response.data) do
+                            if srv.id == myJobId then continue end
+                            if srv.playing >= srv.maxPlayers then continue end
+                            if srv.playing < 8 then continue end
+                            local fill = srv.playing / srv.maxPlayers
+                            if fill > 0.25 and fill < 0.9 then
+                                table.insert(candidates, srv)
+                            end
                         end
+                        if #candidates == 0 then wait(3 + attempt*1.5) continue end
+                        local target = candidates[math.random(1, #candidates)]
+                        pcall(function()
+                            TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
+                        end)
+                        wait(5 + attempt*2)
                     end
-                    if #candidates == 0 then wait(3 + attempt*1.5) continue end
-                    local target = candidates[math.random(1, #candidates)]
-                    pcall(function()
-                        TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
-                    end)
-                    wait(5 + attempt*2)
                 end
-            end
-            spawn(ServerHop)
+                ServerHop()
+            end)
         end
     end
 end)
