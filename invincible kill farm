@@ -1,4 +1,5 @@
--- Create GUI
+-- Ensure this is a LocalScript inside StarterPlayerScripts
+
 local player = game.Players.LocalPlayer
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 gui.Name = "InvincibleUI"
@@ -19,7 +20,6 @@ title.TextSize = 24
 
 local yOffset = 60
 
--- Helper to create bigger red buttons
 local function createButton(text, y)
     local btn = Instance.new("TextButton", frame)
     btn.Size = UDim2.new(0, 350, 0, 50)
@@ -72,19 +72,21 @@ local btnSetNight = createButton("Set Night Time", yOffset + 60)
 local btnStartKill = createButton("Start Auto Kill", yOffset + 120)
 local btnStopKill = createButton("Stop Auto Kill", yOffset + 180)
 local btnServerHop = createButton("Server Hop", yOffset + 240)
+local btnToggleFarm = createButton("Toggle Auto Farm", yOffset + 300)
+local btnToggleServerHop = createButton("Toggle Server Hop", yOffset + 360)
 
-local intervalInput = createInput("Server Hop Interval (s)", yOffset + 300)
+local intervalInput = createInput("Server Hop Interval (s)", yOffset + 420)
 intervalInput.Text = "30"
 
 local killOnlyWeakerCheckbox = Instance.new("TextButton", frame)
 killOnlyWeakerCheckbox.Size = UDim2.new(0, 50, 0, 50)
-killOnlyWeakerCheckbox.Position = UDim2.new(0, 20, 0, yOffset + 360)
+killOnlyWeakerCheckbox.Position = UDim2.new(0, 20, 0, yOffset + 480)
 killOnlyWeakerCheckbox.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 killOnlyWeakerCheckbox.BorderSizePixel = 0
 
 local killOnlyWeakerLabel = Instance.new("TextLabel", frame)
 killOnlyWeakerLabel.Size = UDim2.new(0, 250, 0, 50)
-killOnlyWeakerLabel.Position = UDim2.new(0, 80, 0, yOffset + 360)
+killOnlyWeakerLabel.Position = UDim2.new(0, 80, 0, yOffset + 480)
 killOnlyWeakerLabel.BackgroundTransparency = 1
 killOnlyWeakerLabel.Text = "Kill Only Weaker"
 killOnlyWeakerLabel.TextColor3 = Color3.white
@@ -92,28 +94,20 @@ killOnlyWeakerLabel.Font = Enum.Font.SourceSansBold
 killOnlyWeakerLabel.TextSize = 20
 local KillOnlyWeaker = true
 
-killOnlyWeakerCheckbox.MouseButton1Click:Connect(function()
-    KillOnlyWeaker = not KillOnlyWeaker
-    killOnlyWeakerCheckbox.BackgroundColor3 = KillOnlyWeaker and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(150, 0, 0)
-end)
-
 -- Variables
 local AutoFarm = false
 local AutoServerHop = false
-local AutoLockPosition = false
-local AutoSetNight = false
-local AutoBigHitbox = false
+local ServerHopInterval = tonumber(intervalInput.Text) or 30
+local LastServerHopTime = 0
 
 local runService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
-local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
 local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217)
-local gymPos = gymCFrame.Position
 
 local positionLockAttachment, positionLockAlignPos
 
@@ -130,7 +124,7 @@ local function setupPositionLock()
     positionLockAttachment = Instance.new("Attachment", hrp)
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
-    positionLockAlignPos.Position = gymPos
+    positionLockAlignPos.Position = gymCFrame.Position
     positionLockAlignPos.MaxForce = 1e7
     positionLockAlignPos.Responsiveness = 200
     positionLockAlignPos.RigidityEnabled = true
@@ -142,16 +136,23 @@ local function setNightTime()
     Lighting.Brightness = 0.5
     Lighting.Ambient = Color3.fromRGB(50,50,70)
     Lighting.OutdoorAmbient = Color3.fromRGB(30,30,50)
+    print("Night time set")
 end
 
 local function setBigHitbox()
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.Size = Vector3.new(25,25,25) end
+    if hrp then
+        hrp.Size = Vector3.new(25,25,25)
+        print("Big hitbox set")
+    end
 end
 
 local function resetHitbox()
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.Size = Vector3.new(2,2,1) end
+    if hrp then
+        hrp.Size = Vector3.new(2,2,1)
+        print("Hitbox reset")
+    end
 end
 
 local function GetPlayerStatValue(plr, statNames)
@@ -191,9 +192,14 @@ local LastAttackTime = 0
 local function AttackNearbyPlayers()
     if (os.clock() - LastAttackTime) < 0.08 then return end
     LastAttackTime = os.clock()
+
     local char = LocalPlayer.Character
     local punch = char and char:FindFirstChild("Punch")
-    if punch then punch:Activate() end
+    if punch then
+        print("Activating punch")
+        punch:Activate()
+    end
+
     for _, other in pairs(Players:GetPlayers()) do
         if other ~= LocalPlayer and other.Character then
             if ShouldKillPlayer(other) then
@@ -205,7 +211,7 @@ local function AttackNearbyPlayers()
                     local wasAnchored = root.Anchored
                     root.Anchored = true
                     firetouchinterest(head, LocalPlayer.Character:FindFirstChild("LeftHand") or LocalPlayer.Character:FindFirstChild("Left Arm"), 0)
-                    task.wait()
+                    task.wait(0.1)
                     firetouchinterest(head, LocalPlayer.Character:FindFirstChild("LeftHand") or LocalPlayer.Character:FindFirstChild("Left Arm"), 1)
                     root.Anchored = wasAnchored
                 end
@@ -220,45 +226,56 @@ local autoKillConnection
 local function startAutoKill()
     if autoKillRunning then return end
     autoKillRunning = true
-    autoKillConnection = RunService.Heartbeat:Connect(function()
+    autoKillConnection = runService.Heartbeat:Connect(function()
         if not AutoFarm then return end
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return end
         if not (LocalPlayer.Character:FindFirstChild("Punch")) then
             local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
             if tool then
-                local humanoid = hum
-                humanoid:EquipTool(tool)
+                hum:EquipTool(tool)
+                print("Equipped punch")
             end
             return
         end
         AttackNearbyPlayers()
     end)
+    print("Auto Kill started")
 end
 
 local function stopAutoKill()
     if autoKillConnection then autoKillConnection:Disconnect() end
     autoKillRunning = false
+    print("Auto Kill stopped")
 end
 
--- Button functions
+-- Button callbacks
 btnTPGym.MouseButton1Click:Connect(function()
+    print("TP to Gym")
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.CFrame = gymCFrame end
+    if hrp then
+        hrp.CFrame = gymCFrame
+        print("Teleported to gym")
+    end
 end)
 
-btnSetNight.MouseButton1Click:Connect(setNightTime)
+btnSetNight.MouseButton1Click:Connect(function()
+    setNightTime()
+end)
 
 btnStartKill.MouseButton1Click:Connect(function()
+    AutoFarm = true
     startAutoKill()
 end)
 
 btnStopKill.MouseButton1Click:Connect(function()
+    AutoFarm = false
     stopAutoKill()
 end)
 
 btnServerHop.MouseButton1Click:Connect(function()
-    -- Run your server hop code here
+    print("Server hopping...")
+    -- your server hop code here
     local function ServerHop()
         local placeId = game.PlaceId
         local myJobId = game.JobId
@@ -289,19 +306,39 @@ btnServerHop.MouseButton1Click:Connect(function()
     ServerHop()
 end)
 
--- Update interval for server hop
 intervalInput.FocusLost:Connect(function()
     local val = tonumber(intervalInput.Text)
-    if val then ServerHopInterval = val end
+    if val then
+        ServerHopInterval = val
+        print("Server hop interval set to", val)
+    end
 end)
 
--- Main loop
-local lastHopTime = 0
-RunService.Heartbeat:Connect(function()
-    -- Server hop
-    if AutoServerHop and (os.clock() - lastHopTime) >= ServerHopInterval then
-        lastHopTime = os.clock()
-        task.spawn(function()
+-- Toggle for AutoFarm
+btnToggleFarm.MouseButton1Click:Connect(function()
+    AutoFarm = not AutoFarm
+    if AutoFarm then
+        startAutoKill()
+        print("AutoFarm enabled")
+    else
+        stopAutoKill()
+        print("AutoFarm disabled")
+    end
+end)
+
+-- Toggle for Server Hop
+btnToggleServerHop.MouseButton1Click:Connect(function()
+    AutoServerHop = not AutoServerHop
+    print("AutoServerHop is now", AutoServerHop)
+end)
+
+-- Main loop for server hop timing
+runService.Heartbeat:Connect(function()
+    if AutoServerHop then
+        if (os.clock() - LastServerHopTime) >= ServerHopInterval then
+            LastServerHopTime = os.clock()
+            print("Performing server hop")
+            -- Call server hop code here, or run in a coroutine
             local function ServerHop()
                 local placeId = game.PlaceId
                 local myJobId = game.JobId
@@ -329,20 +366,16 @@ RunService.Heartbeat:Connect(function()
                     wait(5 + attempt*2)
                 end
             end
-            ServerHop()
-        end)
+            spawn(ServerHop)
+        end
     end
+end)
 
-    -- Auto set night time
-    if AutoSetNight then setNightTime() end
-
-    -- Auto big hitbox
-    if AutoBigHitbox then setBigHitbox() end
-
-    -- Auto lock position
-    if AutoLockPosition then
-        setupPositionLock()
-    end
+-- Auto set night and big hitbox
+runService.Heartbeat:Connect(function()
+    if _G.AutoSetNight then setNightTime() end
+    if _G.AutoBigHitbox then setBigHitbox() end
+    if _G.AutoLockPosition then setupPositionLock() end
 end)
 
 print("UI loaded! Features should now work.")
