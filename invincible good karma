@@ -4,6 +4,67 @@
 -- No UI - Everything auto enabled
 -- =============================================
 
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KarmaFarmLabel"
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- Create TextLabel
+local textLabel = Instance.new("TextLabel")
+textLabel.Parent = screenGui
+textLabel.Size = UDim2.new(0.6, 0, 0.2, 0)
+textLabel.Position = UDim2.new(0.2, 0, 0.4, 0)
+textLabel.BackgroundColor3 = Color3.fromRGB(255, 215, 0) -- Gold color
+textLabel.BorderSizePixel = 4
+textLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
+textLabel.Text = "Good Karma Farm\nmade by Invincible"
+textLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+textLabel.TextScaled = true
+textLabel.Font = Enum.Font.Fantasy
+
+-- Decorate to look like a person made it
+local function decorateLabel(label)
+    -- Add a "hat" using a small frame
+    local hat = Instance.new("Frame")
+    hat.Size = UDim2.new(0.2, 0, 0.1, 0)
+    hat.Position = UDim2.new(0.4, 0, -0.1, 0)
+    hat.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red hat
+    hat.BorderSizePixel = 0
+    hat.Parent = label
+
+    -- Add "arms"
+    local leftArm = Instance.new("Frame")
+    leftArm.Size = UDim2.new(0.1, 0, 0.4, 0)
+    leftArm.Position = UDim2.new(0, -0.05 * label.AbsoluteSize.X, 0.3, 0)
+    leftArm.BackgroundColor3 = Color3.fromRGB(0, 0, 255) -- Blue arms
+    leftArm.BorderSizePixel = 0
+    leftArm.Parent = label
+
+    local rightArm = Instance.new("Frame")
+    rightArm.Size = UDim2.new(0.1, 0, 0.4, 0)
+    rightArm.Position = UDim2.new(1, -0.05 * label.AbsoluteSize.X, 0.3, 0)
+    rightArm.BackgroundColor3 = Color3.fromRGB(0, 0, 255)
+    rightArm.BorderSizePixel = 0
+    rightArm.Parent = label
+
+    -- Add "legs"
+    local leftLeg = Instance.new("Frame")
+    leftLeg.Size = UDim2.new(0.1, 0, 0.3, 0)
+    leftLeg.Position = UDim2.new(0.3, 0, 1, 0)
+    leftLeg.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Green legs
+    leftLeg.BorderSizePixel = 0
+    leftLeg.Parent = label
+
+    local rightLeg = Instance.new("Frame")
+    rightLeg.Size = UDim2.new(0.1, 0, 0.3, 0)
+    rightLeg.Position = UDim2.new(0.6, 0, 1, 0)
+    rightLeg.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    rightLeg.BorderSizePixel = 0
+    rightLeg.Parent = label
+end
+
+decorateLabel(textLabel)
+
 -- Settings (All Auto-Enabled)
 local AutoFarmEnabled = true
 local AutoGoodKarmaEnabled = true
