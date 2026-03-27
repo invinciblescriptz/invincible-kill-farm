@@ -1,21 +1,10 @@
 -- =============================================
--- Invincible Good Karma Farm - Clean Version
+-- || gud karma killing || - Auto Start Version
 -- Only kills evil players to gain Good Karma
+-- No UI - Everything auto enabled
 -- =============================================
 
--- UI Library
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
-local window = library:AddWindow("good karma farm", {
-    main_color = Color3.fromRGB(0, 0, 0),
-    min_size = Vector2.new(200, 200),
-    can_resize = false,
-    background_transparency = 1,
-})
-
--- Main Tab Only
-local mainTabData = window:AddTab("Main")
-
--- Settings
+-- Settings (All Auto-Enabled)
 local AutoFarmEnabled = true
 local AutoGoodKarmaEnabled = true
 local AutoServerHopEnabled = true
@@ -28,25 +17,6 @@ local AutoBigHitboxEnabled = true
 -- Sunset Location
 local gymCFrame = CFrame.new(4109.91309, 1022.23541, -3802.15332, -1, 0, 0, 0, 1, 0, 0, 0, -1)
 local gymPos = gymCFrame.Position
-
--- UI Toggles & Slider (No Buttons)
-mainTabData:AddSwitch("Auto Punch (Farm)", function(state) AutoFarmEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto Good Karma (Kill Evil Only)", function(state) AutoGoodKarmaEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto Server Hop", function(state) AutoServerHopEnabled = state end):Set(true)
-mainTabData:AddSlider("Hop Interval (s)", function(value) ServerHopInterval = value end, {min = 5, max = 120}):Set(30)
-mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state) AutoTPKingGymEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto Lock Position", function(state)
-    AutoLockPositionEnabled = state
-    if state then setupPositionLock() else clearPositionLock() end
-end):Set(true)
-mainTabData:AddSwitch("Auto Set Sunset Time", function(state)
-    AutoSetSunsetEnabled = state
-    if state then setSunsetTime() end
-end):Set(true)
-mainTabData:AddSwitch("Auto Big Hitbox", function(state)
-    AutoBigHitboxEnabled = state
-    if not state then resetHitbox() end
-end):Set(true)
 
 -- Services
 local Players = game:GetService("Players")
@@ -271,9 +241,9 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("✅ Gud Karma Killing Script Loaded!")
-print("→ New Location: 4109.91, 1022.24, -3802.15")
-print("→ Sunset Time + Evil Only Kills + Big Hitbox Active")
+print("✅ || gud karma killing || Fully Loaded - Auto Start!")
+print("→ Teleporting to: 4109.91, 1022.24, -3802.15")
+print("→ Sunset Time + Evil Only Kills + Big Hitbox + Position Lock Active")
 
 -- =============================================
 -- Muscle Legends Kill Counter UI (Original)
