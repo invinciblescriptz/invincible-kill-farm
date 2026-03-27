@@ -1,8 +1,23 @@
 -- =============================================
 -- || gud karma killing || - Auto Start Version
 -- Only kills evil players to gain Good Karma
--- No UI - Everything auto enabled
+-- Good Karma Draggable GUI (replaces old kill counter)
 -- =============================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+if getgenv().GoodKarmaFarmLoaded then return end
+getgenv().GoodKarmaFarmLoaded = true
+
+local LastServerHop = os.clock()
 
 -- Settings (All Auto-Enabled)
 local AutoFarmEnabled = true
@@ -14,25 +29,13 @@ local AutoLockPositionEnabled = true
 local AutoSetSunsetEnabled = true
 local AutoBigHitboxEnabled = true
 
--- Sunset Location
+-- Sunset Location (King Gym)
 local gymCFrame = CFrame.new(4109.91309, 1022.23541, -3802.15332, -1, 0, 0, 0, 1, 0, 0, 0, -1)
 local gymPos = gymCFrame.Position
 
--- Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local VirtualUser = game:GetService("VirtualUser")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Lighting = game:GetService("Lighting")
-local LocalPlayer = Players.LocalPlayer
-
-if getgenv().GoodKarmaFarmLoaded then return end
-getgenv().GoodKarmaFarmLoaded = true
-
-local LastServerHop = os.clock()
-
--- Position Lock
+-- =============================================
+-- Position Lock, Sunset, Hitbox Functions
+-- =============================================
 local positionLockAlignPos, positionLockAttachment
 
 local function clearPositionLock()
@@ -46,6 +49,7 @@ local function setupPositionLock()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
     pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+   
     positionLockAttachment = Instance.new("Attachment", hrp)
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
@@ -57,7 +61,6 @@ local function setupPositionLock()
     positionLockAlignPos.Parent = hrp
 end
 
--- Sunset Time
 local function setSunsetTime()
     Lighting.ClockTime = 18.5
     Lighting.Brightness = 1.2
@@ -65,13 +68,10 @@ local function setSunsetTime()
     Lighting.OutdoorAmbient = Color3.fromRGB(90, 60, 40)
 end
 
--- Hitbox
-local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)
-
 local function setBigHitbox()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.Size = TARGET_HITBOX_SIZE end
+    if hrp then hrp.Size = Vector3.new(25, 25, 25) end
 end
 
 local function resetHitbox()
@@ -80,6 +80,7 @@ local function resetHitbox()
     if hrp then hrp.Size = Vector3.new(2, 2, 1) end
 end
 
+-- Character Vars
 local Character, Humanoid, Punch, HRP
 local LastAttack = 0
 
@@ -159,7 +160,140 @@ local function ServerHop()
     warn("Server hop exhausted attempts")
 end
 
--- Main Loop
+-- =============================================
+-- GOOD KARMA DRAGGABLE GUI (Replaces old kill counter)
+-- =============================================
+local goodKarma = LocalPlayer:WaitForChild("goodKarma")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MuscleLegendsGoodKarmaGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 320, 0, 160)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -80)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = mainFrame
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(0, 170, 255)
+uiStroke.Thickness = 2
+uiStroke.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -40, 1, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "💪 Muscle Legends - Good Karma"
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = titleBar
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.BackgroundTransparency = 1
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.new(1, 0, 0)
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = titleBar
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+-- Karma Display
+local karmaLabel = Instance.new("TextLabel")
+karmaLabel.Name = "KarmaLabel"
+karmaLabel.Size = UDim2.new(1, -20, 0, 80)
+karmaLabel.Position = UDim2.new(0, 10, 0, 55)
+karmaLabel.BackgroundTransparency = 1
+karmaLabel.Text = "Good Karma: 0"
+karmaLabel.TextColor3 = Color3.new(1, 1, 1)
+karmaLabel.TextScaled = true
+karmaLabel.Font = Enum.Font.GothamBold
+karmaLabel.Parent = mainFrame
+
+-- Draggable Functionality
+local dragging = false
+local dragInput = nil
+local dragStart = nil
+local startPos = nil
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        updateInput(input)
+    end
+end)
+
+-- Real-time Karma Update
+local function updateKarma()
+    local amount = goodKarma.Value
+    karmaLabel.Text = "Good Karma: " .. tostring(amount)
+    
+    -- Nice flash effect when karma increases
+    karmaLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+    TweenService:Create(karmaLabel, TweenInfo.new(0.4), {TextColor3 = Color3.new(1,1,1)}):Play()
+end
+
+goodKarma.Changed:Connect(updateKarma)
+updateKarma() -- Initial update
+
+task.spawn(function()
+    while screenGui.Parent do
+        task.wait(1)
+        if goodKarma then updateKarma() end
+    end
+end)
+
+-- =============================================
+-- MAIN FARM LOOP
+-- =============================================
 RunService.Heartbeat:Connect(function()
     -- Server Hop
     if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
@@ -210,9 +344,9 @@ RunService.Heartbeat:Connect(function()
         for _, target in ipairs(Players:GetPlayers()) do
             if target == LocalPlayer then continue end
             local evilKarma = target:FindFirstChild("evilKarma")
-            local goodKarma = target:FindFirstChild("goodKarma")
-            if not (evilKarma and goodKarma and evilKarma:IsA("IntValue") and goodKarma:IsA("IntValue")) then continue end
-            if evilKarma.Value <= goodKarma.Value then continue end
+            local goodKarmaTarget = target:FindFirstChild("goodKarma")
+            if not (evilKarma and goodKarmaTarget and evilKarma:IsA("IntValue") and goodKarmaTarget:IsA("IntValue")) then continue end
+            if evilKarma.Value <= goodKarmaTarget.Value then continue end
 
             local tChar = target.Character
             if not tChar then continue end
@@ -239,258 +373,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("✅ || gud karma killing || Fully Loaded - Auto Start!")
-print("→ Teleporting to: 4109.91, 1022.24, -3802.15")
-print("→ Sunset Time + Evil Only Kills + Big Hitbox + Position Lock Active!")
-
--- =============================================
--- Muscle Legends Kill Counter UI (Original)
--- =============================================
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local leaderstats = player:WaitForChild("leaderstats")
-local killsValue = leaderstats:WaitForChild("Kills")
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "KillCounterUI"
-screenGui.Parent = playerGui
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local frame = Instance.new("Frame")
-frame.Name = "MainFrame"
-frame.Size = UDim2.new(0, 250, 0, 80)
-frame.Position = UDim2.new(1, -270, 0, 20)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 12)
-uiCorner.Parent = frame
-
-local uiGradient = Instance.new("UIGradient")
-uiGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20))
-}
-uiGradient.Rotation = 45
-uiGradient.Parent = frame
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(255, 215, 0)
-uiStroke.Thickness = 2
-uiStroke.Parent = frame
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "Title"
-titleLabel.Size = UDim2.new(1, 0, 0, 30)
-titleLabel.Position = UDim2.new(0, 0, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "💪 KILLS"
-titleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-titleLabel.TextScaled = true
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Parent = frame
-
-local killsLabel = Instance.new("TextLabel")
-killsLabel.Name = "KillsLabel"
-killsLabel.Size = UDim2.new(1, 0, 0, 40)
-killsLabel.Position = UDim2.new(0, 0, 0, 30)
-killsLabel.BackgroundTransparency = 1
-killsLabel.Text = "0"
-killsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-killsLabel.TextScaled = true
-killsLabel.Font = Enum.Font.GothamBlack
-killsLabel.Parent = frame
-
-local function formatNumber(num)
-    return tostring(num):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-end
-
-local function updateKills()
-    local formattedKills = formatNumber(killsValue.Value)
-    killsLabel.Text = formattedKills
-    local tween = TweenService:Create(killsLabel, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-    tween:Play()
-    tween.Completed:Connect(function()
-        local tween2 = TweenService:Create(killsLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-        tween2:Play()
-    end)
-end
-
-killsValue.Changed:Connect(updateKills)
-updateKills()
-
--- Make draggable
-local dragging = false
-local dragStart, startPos
-
-frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-    end
-end)
-
-frame.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
-
-print("Muscle Legends Kill Counter UI loaded! 💀")
-
--- =============================================
--- Replaced the kill counter GUI with the new draggable Good Karma Counter GUI
--- =============================================
-
--- New Draggable Good Karma Counter GUI
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local goodKarma = player:WaitForChild("goodKarma") -- Path to your Good Karma Value
-
-local karmaGui = Instance.new("ScreenGui")
-karmaGui.Name = "MuscleLegendsGoodKarmaGUI"
-karmaGui.ResetOnSpawn = false
-karmaGui.Parent = playerGui
-
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 320, 0, 160)
-mainFrame.Position = UDim2.new(0.5, -160, 0.5, -80)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-mainFrame.BorderSizePixel = 0
-mainFrame.Parent = karmaGui
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 12)
-uiCorner.Parent = mainFrame
-
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(0, 170, 255)
-uiStroke.Thickness = 2
-uiStroke.Parent = mainFrame
-
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-titleBar.BorderSizePixel = 0
-titleBar.Parent = mainFrame
-
-local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 12)
-titleCorner.Parent = titleBar
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -40, 1, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "💪 Muscle Legends - Good Karma Counter"
-titleLabel.TextColor3 = Color3.new(1, 1, 1)
-titleLabel.TextScaled = true
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Parent = titleBar
-
-local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -35, 0, 5)
-closeButton.BackgroundTransparency = 1
-closeButton.Text = "✕"
-closeButton.TextColor3 = Color3.new(1, 0, 0)
-closeButton.TextScaled = true
-closeButton.Font = Enum.Font.GothamBold
-closeButton.Parent = titleBar
-
-closeButton.MouseButton1Click:Connect(function()
-    karmaGui:Destroy()
-end)
-
-local karmaLabel = Instance.new("TextLabel")
-karmaLabel.Name = "KarmaLabel"
-karmaLabel.Size = UDim2.new(1, -20, 0, 80)
-karmaLabel.Position = UDim2.new(0, 10, 0, 55)
-karmaLabel.BackgroundTransparency = 1
-karmaLabel.Text = "Good Karma: 0"
-karmaLabel.TextColor3 = Color3.new(1, 1, 1)
-karmaLabel.TextScaled = true
-karmaLabel.Font = Enum.Font.GothamBold
-karmaLabel.Parent = mainFrame
-
-local dragging = false
-local dragInput = nil
-local dragStart = nil
-local startPos = nil
-
-local function updateInput(input)
-    local delta = input.Position - dragStart
-    mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-
-titleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-titleBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        if dragging then
-            updateInput(input)
-        end
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
-        updateInput(input)
-    end
-end)
-
-local function updateKarma()
-    local amount = goodKarma.Value
-    karmaLabel.Text = "Good Karma: " .. tostring(amount)
-    -- Optional color flash when it increases
-    if amount > (tonumber(karmaLabel:FindFirstChild("LastValue") and karmaLabel.LastValue.Value or 0)) then
-        karmaLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-        TweenService:Create(karmaLabel, TweenInfo.new(0.4), {TextColor3 = Color3.new(1,1,1)}):Play()
-    end
-    local last = karmaLabel:FindFirstChild("LastValue")
-    if not last then
-        last = Instance.new("IntValue")
-        last.Name = "LastValue"
-        last.Parent = karmaLabel
-    end
-    last.Value = amount
-end
-
-goodKarma.Changed:Connect(updateKarma)
-updateKarma()
-
--- Backup update loop
-task.spawn(function()
-    while karmaGui.Parent do
-        task.wait(1)
-        if goodKarma then updateKarma() end
-    end
-end)
-
-print("✅ Muscle Legends Good Karma GUI loaded! Drag by the blue title bar.")
+print("✅ || gud karma killing || Fully Loaded with Good Karma GUI!")
+print("→ Draggable Good Karma Counter Active")
+print("→ Evil Only Kills + Position Lock + Big Hitbox + Sunset Mode")
