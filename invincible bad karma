@@ -5,12 +5,11 @@ local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
-
 local LocalPlayer = Players.LocalPlayer
 
 -- Configuration
 local autoTargetEvil = true
-local autoBadKarma = true
+local autoBadKarma = true          -- This is the Evil Karma farming (kill good/neutral)
 local autoFarm = true
 local autoServerHop = true
 local serverHopInterval = 30
@@ -19,9 +18,7 @@ local autoLockPosition = true
 local autoSetNight = true
 local autoBigHitbox = true
 local autoEquipPunch = true
-
--- NEW: Fast Hit Feature
-_G.fastHitActive = true   -- Set to true by default
+_G.fastHitActive = true
 
 local LastServerHop = os.clock()
 
@@ -32,14 +29,8 @@ local gymPos = gymCFrame.Position
 local positionLockAlignPos, positionLockAttachment = nil, nil
 
 local function clearPositionLock()
-    if positionLockAlignPos then
-        positionLockAlignPos:Destroy()
-        positionLockAlignPos = nil
-    end
-    if positionLockAttachment then
-        positionLockAttachment:Destroy()
-        positionLockAttachment = nil
-    end
+    if positionLockAlignPos then positionLockAlignPos:Destroy() positionLockAlignPos = nil end
+    if positionLockAttachment then positionLockAttachment:Destroy() positionLockAttachment = nil end
 end
 
 local function setupPositionLock()
@@ -47,12 +38,10 @@ local function setupPositionLock()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
-
+    
     positionLockAttachment = Instance.new("Attachment", hrp)
     positionLockAlignPos = Instance.new("AlignPosition")
-
     positionLockAlignPos.Attachment0 = positionLockAttachment
     positionLockAlignPos.Position = gymPos
     positionLockAlignPos.MaxForce = 1e7
@@ -76,40 +65,18 @@ local function setBigHitbox()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if hrp then
         hrp.Size = TARGET_HITBOX_SIZE
+        hrp.Transparency = 0.7  -- optional: helps you see the big hitbox
     end
-end
-
--- Get stat value
-local function GetPlayerStatValue(plr, statNames)
-    if not plr then return nil end
-    if type(statNames) == "string" then statNames = {statNames} end
-
-    for _, name in ipairs(statNames) do
-        local val = plr:GetAttribute(name)
-        if val ~= nil then return tonumber(val) end
-    end
-
-    local stats = plr:FindFirstChild("leaderstats")
-    if stats then
-        for _, name in ipairs(statNames) do
-            local v = stats:FindFirstChild(name)
-            if v and v:IsA("ValueBase") then
-                return tonumber(v.Value)
-            end
-        end
-    end
-    return nil
 end
 
 local function UpdateCharacter()
     local char = LocalPlayer.Character
     if not char then return nil end
-
     return {
         Character = char,
         Humanoid = char:FindFirstChildOfClass("Humanoid"),
-        RightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm"),
-        LeftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm"),
+        RightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm") or char:FindFirstChild("RightLowerArm"),
+        LeftHand  = char:FindFirstChild("LeftHand")  or char:FindFirstChild("Left Arm")  or char:FindFirstChild("LeftLowerArm"),
         Punch = char:FindFirstChild("Punch") or LocalPlayer.Backpack:FindFirstChild("Punch"),
         HRP = char:FindFirstChild("HumanoidRootPart")
     }
@@ -123,20 +90,17 @@ end)
 
 -- ====================== AUTO EQUIP PUNCH ======================
 local equipConnection
-
 local function StartAutoEquipPunch()
     if equipConnection then return end
-    
     equipConnection = task.spawn(function()
         while autoEquipPunch do
             local char = LocalPlayer.Character
             if char then
                 local humanoid = char:FindFirstChildOfClass("Humanoid")
-                local punchInCharacter = char:FindFirstChild("Punch")
-                local punchInBackpack = LocalPlayer.Backpack:FindFirstChild("Punch")
-
-                if humanoid and not punchInCharacter and punchInBackpack then
-                    humanoid:EquipTool(punchInBackpack)
+                local punchInChar = char:FindFirstChild("Punch")
+                local punchInBP = LocalPlayer.Backpack:FindFirstChild("Punch")
+                if humanoid and not punchInChar and punchInBP then
+                    humanoid:EquipTool(punchInBP)
                 end
             end
             task.wait(0.15)
@@ -152,13 +116,11 @@ local function StopAutoEquipPunch()
     end
 end
 
--- ====================== FAST HIT (NEW) ======================
+-- ====================== FAST HIT ======================
 local fastHitConnection1, fastHitConnection2
-
 local function StartFastHit()
     if fastHitConnection1 or fastHitConnection2 then return end
-
-    -- Fast Hit - Move to Character + Set attackTime to 0
+    
     fastHitConnection1 = task.spawn(function()
         while _G.fastHitActive do
             local punch = LocalPlayer.Backpack:FindFirstChild("Punch")
@@ -168,67 +130,102 @@ local function StartFastHit()
                     punch.attackTime.Value = 0
                 end
             end
-            task.wait(0.1)
+            task.wait(0.08)
         end
     end)
-
-    -- Fast Hit - Auto Activate Punch
+    
     fastHitConnection2 = task.spawn(function()
         while _G.fastHitActive do
             local punch = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Punch")
             if punch then
                 punch:Activate()
             end
-            task.wait(0.1)
+            task.wait(0.05)   -- more aggressive
         end
     end)
 end
 
 local function StopFastHit()
     _G.fastHitActive = false
-    if fastHitConnection1 then
-        task.cancel(fastHitConnection1)
-        fastHitConnection1 = nil
-    end
-    if fastHitConnection2 then
-        task.cancel(fastHitConnection2)
-        fastHitConnection2 = nil
-    end
+    if fastHitConnection1 then task.cancel(fastHitConnection1) fastHitConnection1 = nil end
+    if fastHitConnection2 then task.cancel(fastHitConnection2) fastHitConnection2 = nil end
 end
 
--- ====================== AUTO BAD KARMA ======================
+-- ====================== AUTO EVIL KARMA KILL (FIXED & IMPROVED) ======================
 local badKarmaConnection
+
+local function ShouldKillForEvil(target)
+    if not target or target == LocalPlayer then return false end
+    
+    local char = target.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    
+    -- Look for Good Karma / Light Karma in common places
+    local goodKarma = nil
+    local evilKarma = 0
+    
+    local possibleGood = {"goodKarma", "GoodKarma", "good karma", "LightKarma", "lightKarma"}
+    local possibleEvil = {"evilKarma", "EvilKarma", "darkKarma", "DarkKarma"}
+    
+    -- Check player directly and leaderstats
+    for _, name in ipairs(possibleGood) do
+        if target:FindFirstChild(name) and target[name]:IsA("IntValue") then
+            goodKarma = target[name].Value
+            break
+        end
+        local ls = target:FindFirstChild("leaderstats")
+        if ls and ls:FindFirstChild(name) then
+            goodKarma = ls[name].Value
+            break
+        end
+    end
+    
+    for _, name in ipairs(possibleEvil) do
+        if target:FindFirstChild(name) and target[name]:IsA("IntValue") then
+            evilKarma = target[name].Value
+            break
+        end
+        local ls = target:FindFirstChild("leaderstats")
+        if ls and ls:FindFirstChild(name) then
+            evilKarma = ls[name].Value
+            break
+        end
+    end
+    
+    -- Kill if they have Good Karma OR are neutral (very low/zero evil)
+    if (goodKarma and goodKarma > 0) or (evilKarma < 50) then
+        return true
+    end
+    
+    return false
+end
 
 local function StartAutoBadKarma()
     if badKarmaConnection then return end
-
+    
     badKarmaConnection = task.spawn(function()
         while autoBadKarma do
             local data = UpdateCharacter()
-            if data and data.RightHand and data.LeftHand then
+            if data and data.RightHand and data.LeftHand and data.HRP then
+                
                 for _, target in ipairs(Players:GetPlayers()) do
-                    if target == LocalPlayer then continue end
-
-                    local evilKarma = target:FindFirstChild("evilKarma")
-                    local goodKarma = target:FindFirstChild("goodKarma")
-
-                    if evilKarma and goodKarma 
-                       and evilKarma:IsA("IntValue") 
-                       and goodKarma:IsA("IntValue") 
-                       and goodKarma.Value > evilKarma.Value then
-
-                        local rootPart = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-                        if rootPart then
-                            firetouchinterest(data.RightHand, rootPart, 0)
-                            firetouchinterest(data.LeftHand, rootPart, 0)
-                            task.wait()
-                            firetouchinterest(data.RightHand, rootPart, 1)
-                            firetouchinterest(data.LeftHand, rootPart, 1)
+                    if ShouldKillForEvil(target) then
+                        local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            local dist = (root.Position - data.HRP.Position).Magnitude
+                            if dist < 40 then  -- increased range with big hitbox
+                                -- Better touch order for more reliable registration
+                                firetouchinterest(data.RightHand, root, 0)
+                                firetouchinterest(data.LeftHand,  root, 0)
+                                task.wait(0.025)
+                                firetouchinterest(data.RightHand, root, 1)
+                                firetouchinterest(data.LeftHand,  root, 1)
+                            end
                         end
                     end
                 end
             end
-            task.wait(0.01)
+            task.wait(0.07)  -- faster loop = better hit rate
         end
     end)
 end
@@ -240,10 +237,9 @@ local function StopAutoBadKarma()
     end
 end
 
--- Character Added Handler
+-- Character Added
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(1.5)
-    
     if autoTPKingGym then
         local data = UpdateCharacter()
         if data and data.HRP then
@@ -251,67 +247,40 @@ LocalPlayer.CharacterAdded:Connect(function()
             task.wait(0.3)
         end
     end
-
     if autoLockPosition then
         task.wait(0.4)
         setupPositionLock()
     end
-
-    if autoSetNight then
-        setNightTime()
-    end
-
-    if autoBigHitbox then
-        task.delay(0.8, setBigHitbox)
-    end
-
-    if autoEquipPunch then
-        task.wait(0.5)
-        StartAutoEquipPunch()
-    end
-
-    if _G.fastHitActive then
-        task.wait(0.6)
-        StartFastHit()
-    end
+    if autoSetNight then setNightTime() end
+    if autoBigHitbox then task.delay(0.8, setBigHitbox) end
+    if autoEquipPunch then task.wait(0.5) StartAutoEquipPunch() end
+    if _G.fastHitActive then task.wait(0.6) StartFastHit() end
 end)
 
--- Server Hop Function
+-- Server Hop Function (unchanged)
 local function ServerHop()
     local placeId = game.PlaceId
     local myJobId = game.JobId
-
     for attempt = 1, 6 do
         local success, response = pcall(function()
             return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"))
         end)
-
-        if not success or not response or not response.data then
-            task.wait(2 + attempt)
-            continue
-        end
-
-        local candidates = {}
-        for _, srv in ipairs(response.data) do
-            if srv.id == myJobId then continue end
-            if not srv.playing or not srv.maxPlayers then continue end
-            if srv.playing >= srv.maxPlayers then continue end
-            if srv.playing < 8 then continue end
-
-            local fill = srv.playing / srv.maxPlayers
-            if fill > 0.25 and fill < 0.9 then
-                table.insert(candidates, srv)
+        if success and response and response.data then
+            local candidates = {}
+            for _, srv in ipairs(response.data) do
+                if srv.id ~= myJobId and srv.playing and srv.maxPlayers and srv.playing < srv.maxPlayers and srv.playing >= 8 then
+                    local fill = srv.playing / srv.maxPlayers
+                    if fill > 0.25 and fill < 0.9 then
+                        table.insert(candidates, srv)
+                    end
+                end
+            end
+            if #candidates > 0 then
+                local target = candidates[math.random(1, #candidates)]
+                TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
+                return
             end
         end
-
-        if #candidates > 0 then
-            local target = candidates[math.random(1, #candidates)]
-            pcall(function()
-                TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
-            end)
-            return
-        end
-
         task.wait(3 + attempt * 1.5)
     end
     warn("Server hop: No suitable servers found")
@@ -319,23 +288,17 @@ end
 
 -- ====================== MAIN LOOP ======================
 RunService.Heartbeat:Connect(function()
-    -- Auto Server Hop
     if autoServerHop and (os.clock() - LastServerHop) >= serverHopInterval then
         LastServerHop = os.clock()
         task.spawn(ServerHop)
     end
 
-    -- Auto Night
     if autoSetNight and math.floor(os.clock()) % 5 == 0 then
         setNightTime()
     end
-
-    -- Auto Big Hitbox
     if autoBigHitbox and math.floor(os.clock() * 10) % 3 == 0 then
         setBigHitbox()
     end
-
-    -- Auto Lock Position
     if autoLockPosition then
         if positionLockAlignPos then
             positionLockAlignPos.Position = gymPos
@@ -351,14 +314,12 @@ RunService.Heartbeat:Connect(function()
     local data = UpdateCharacter()
     if not data or not data.Humanoid or data.Humanoid.Health <= 0 then return end
 
-    -- Ensure Punch is equipped
     if autoEquipPunch then
         if not data.Punch or (data.Character and not data.Character:FindFirstChild("Punch")) then
             StartAutoEquipPunch()
         end
     end
 
-    -- Auto Bad Karma
     if autoBadKarma then
         if not badKarmaConnection then
             StartAutoBadKarma()
@@ -367,7 +328,6 @@ RunService.Heartbeat:Connect(function()
         StopAutoBadKarma()
     end
 
-    -- Fast Hit (backup activation)
     if _G.fastHitActive then
         if not fastHitConnection1 or not fastHitConnection2 then
             StartFastHit()
@@ -377,131 +337,112 @@ end)
 
 -- ====================== INITIAL SETUP ======================
 task.wait(2)
-
 if autoTPKingGym then
     local data = UpdateCharacter()
-    if data and data.HRP then
-        data.HRP.CFrame = gymCFrame
-    end
+    if data and data.HRP then data.HRP.CFrame = gymCFrame end
 end
+if autoLockPosition then setupPositionLock() end
+if autoSetNight then setNightTime() end
+if autoBigHitbox then setBigHitbox() end
+if autoEquipPunch then StartAutoEquipPunch() end
+if _G.fastHitActive then StartFastHit() end
+if autoBadKarma then StartAutoBadKarma() end
 
-if autoLockPosition then
-    setupPositionLock()
-end
+print("✅ Script loaded successfully - Auto Evil Karma Kill + Fast Hit + Position Lock enabled")
 
-if autoSetNight then
-    setNightTime()
-end
-
-if autoBigHitbox then
-    setBigHitbox()
-end
-
-if autoEquipPunch then
-    StartAutoEquipPunch()
-end
-
-if _G.fastHitActive then
-    StartFastHit()
-end
-
-if autoBadKarma then
-    StartAutoBadKarma()
-end
-
-print("✅ Script loaded successfully - Auto Bad Karma + Auto Equip + Fast Hit enabled")
-
--- Muscle Legends Evil Karma Auto Counter GUI
--- Made for fun - tracks your Evil Karma
-
-local player = game.Players.LocalPlayer
+-- ====================== EVIL KARMA GUI (unchanged) ======================
+local player = LocalPlayer
 local gui = Instance.new("ScreenGui")
-gui.Name = "EvilKarmaCounter"
+gui.Name = "EvilKarmaGUI"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 180)
-frame.Position = UDim2.new(0.5, -150, 0.3, 0)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.Size = UDim2.new(0, 320, 0, 200)
+frame.Position = UDim2.new(0.5, -160, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
 frame.Parent = gui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
+corner.CornerRadius = UDim.new(0, 14)
 corner.Parent = frame
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 50)
 title.BackgroundTransparency = 1
 title.Text = "💀 EVIL KARMA COUNTER 💀"
-title.TextColor3 = Color3.fromRGB(255, 50, 50)
+title.TextColor3 = Color3.fromRGB(220, 20, 60)
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
 title.Parent = frame
 
 local karmaLabel = Instance.new("TextLabel")
-karmaLabel.Size = UDim2.new(1, -20, 0, 80)
+karmaLabel.Size = UDim2.new(1, -20, 0, 90)
 karmaLabel.Position = UDim2.new(0, 10, 0, 60)
 karmaLabel.BackgroundTransparency = 1
-karmaLabel.Text = "Evil Karma: 0"
-karmaLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+karmaLabel.Text = "Evil Karma: Loading..."
+karmaLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
 karmaLabel.TextScaled = true
 karmaLabel.Font = Enum.Font.GothamBlack
 karmaLabel.Parent = frame
 
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, -20, 0, 30)
+status.Position = UDim2.new(0, 10, 1, -40)
+status.BackgroundTransparency = 1
+status.Text = "Auto-updating every 1s"
+status.TextColor3 = Color3.fromRGB(150, 150, 150)
+status.TextScaled = true
+status.Font = Enum.Font.Gotham
+status.Parent = frame
+
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -35, 0, 5)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-closeBtn.Text = "X"
+closeBtn.Size = UDim2.new(0, 35, 0, 35)
+closeBtn.Position = UDim2.new(1, -40, 0, 8)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+closeBtn.Text = "✕"
 closeBtn.TextColor3 = Color3.new(1,1,1)
-closeBtn.Font = Enum.Font.GothamBold
 closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
 closeBtn.Parent = frame
 
 local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.CornerRadius = UDim.new(0, 10)
 closeCorner.Parent = closeBtn
 
--- Auto update function
-local function updateKarma()
-    local karmaValue = 0
-    
-    -- Try different possible paths where Muscle Legends stores karma
-    if player:FindFirstChild("leaderstats") then
+local function updateEvilKarma()
+    local evil = 0
+    if player:FindFirstChild("EvilKarma") then
+        evil = player.EvilKarma.Value
+    elseif player:FindFirstChild("Evil Karma") then
+        evil = player["Evil Karma"].Value
+    elseif player:FindFirstChild("leaderstats") then
         local ls = player.leaderstats
-        if ls:FindFirstChild("EvilKarma") or ls:FindFirstChild("BadKarma") or ls:FindFirstChild("DarkKarma") then
-            karmaValue = ls:FindFirstChild("EvilKarma") or ls:FindFirstChild("BadKarma") or ls:FindFirstChild("DarkKarma")
-            karmaValue = karmaValue.Value
-        end
+        if ls:FindFirstChild("EvilKarma") then evil = ls.EvilKarma.Value
+        elseif ls:FindFirstChild("Evil Karma") then evil = ls["Evil Karma"].Value end
     end
-    
-    -- Alternative: some games store it directly under player
-    if karmaValue == 0 then
-        if player:FindFirstChild("EvilKarma") then
-            karmaValue = player.EvilKarma.Value
-        elseif player:FindFirstChild("Karma") then
-            karmaValue = player.Karma.Value  -- fallback if combined
-        end
+
+    local formatted = evil
+    if evil >= 1000000 then
+        formatted = string.format("%.1fM", evil / 1000000)
+    elseif evil >= 10000 then
+        formatted = string.format("%.1fK", evil / 1000)
     end
-    
-    karmaLabel.Text = "Evil Karma: " .. tostring(karmaValue)
+    karmaLabel.Text = "Evil Karma: " .. formatted
 end
 
--- Update every 0.8 seconds
 spawn(function()
-    while gui.Parent do
-        updateKarma()
-        wait(0.8)
+    while gui and gui.Parent do
+        updateEvilKarma()
+        wait(0.9)
     end
 end)
 
--- Close button
 closeBtn.MouseButton1Click:Connect(function()
     gui:Destroy()
 end)
 
-print("💀 Muscle Legends Evil Karma Counter loaded! Drag the window around.")
+print("💀 Evil Karma Counter loaded successfully!")
