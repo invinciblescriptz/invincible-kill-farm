@@ -1,0 +1,497 @@
+-- Load UI Library
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
+local window = library:AddWindow("Invincible Kill Farm", {
+    main_color = Color3.fromRGB(0, 0, 0),
+    min_size = Vector2.new(200, 200),
+    can_resize = false,
+    background_transparency = 1,
+})
+
+-- Main Tab
+local mainTabData, mainTab = window:AddTab("Main")
+
+-- Toggle Auto Bad Karma
+mainTab:AddSwitch("Auto Bad Karma", function(bool)
+    autoBadKarma = bool
+    task.spawn(function()
+        while autoBadKarma do
+            local playerChar = LocalPlayer.Character
+            local rightHand = playerChar and playerChar:FindFirstChild("RightHand")
+            local leftHand = playerChar and playerChar:FindFirstChild("LeftHand")
+            if playerChar and rightHand and leftHand then
+                for _, target in ipairs(Players:GetPlayers()) do
+                    if target ~= LocalPlayer then
+                        local evilKarma = target:FindFirstChild("evilKarma")
+                        local goodKarma = target:FindFirstChild("goodKarma")
+                        if evilKarma and goodKarma and evilKarma:IsA("IntValue") and goodKarma:IsA("IntValue") and goodKarma.Value > evilKarma.Value then
+                            local rootPart = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                            if rootPart then
+                                firetouchinterest(rightHand, rootPart, 1)
+                                firetouchinterest(leftHand, rootPart, 1)
+                                firetouchinterest(rightHand, rootPart, 0)
+                                firetouchinterest(leftHand, rootPart, 0)
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.01)
+        end
+    end)
+end)
+
+-- Settings Variables
+local AutoFarmEnabled = true
+local AutoServerHopEnabled = true
+local ServerHopInterval = 30
+local KillOnlyWeakerEnabled = true
+local AutoTPKingGymEnabled = true
+local AutoLockPositionEnabled = true
+local AutoSetNightTimeEnabled = true
+local AutoBigHitboxEnabled = true
+
+-- UI Toggles & Slider
+mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Server Hop", function(state) AutoServerHopEnabled = state end):Set(true)
+mainTabData:AddSlider("Hop Interval (s)", function(value) ServerHopInterval = value end, {min = 5, max = 120}):Set(30)
+mainTabData:AddSwitch("Kill Only Weaker", function(state) KillOnlyWeakerEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state) AutoTPKingGymEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Lock Position", function(state)
+    AutoLockPositionEnabled = state
+    if state then setupPositionLock() else clearPositionLock() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Set Night Time", function(state)
+    AutoSetNightTimeEnabled = state
+    if state then setNightTime() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Big Hitbox", function(state)
+    AutoBigHitboxEnabled = state
+    if not state then resetHitbox() end
+end):Set(true)
+
+-- Gym location setup
+local gymCFrame = CFrame.new(-2623.21777, 233.419388, -409.055267, 0.0130337765, 4.06644531e-08, 0.999915063, -5.63387496e-11, 1, -4.0667171e-08, -0.999915063, 4.73712847e-10, 0.0130337765)
+local gymPos = gymCFrame.Position
+
+mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.CFrame = gymCFrame end
+end)
+
+mainTabData:AddButton("Set Night Time (Manual)", setNightTime)
+
+-- Credits Tab
+local creditsTab = window:AddTab("Credits")
+creditsTab:AddLabel("made by Invincible")
+creditsTab:AddLabel("https://discord.gg/bUythM4H")
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local LocalPlayer = Players.LocalPlayer
+
+if getgenv().AutoKillLoaded then return end
+getgenv().AutoKillLoaded = true
+
+local LastServerHop = os.clock()
+
+-- Position Lock Variables
+local positionLockAlignPos, positionLockAttachment
+
+local function clearPositionLock()
+    if positionLockAlignPos then positionLockAlignPos:Destroy() positionLockAlignPos = nil end
+    if positionLockAttachment then positionLockAttachment:Destroy() positionLockAttachment = nil end
+end
+
+local function setupPositionLock()
+    clearPositionLock()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+
+    positionLockAttachment = Instance.new("Attachment", hrp)
+    positionLockAlignPos = Instance.new("AlignPosition")
+    positionLockAlignPos.Attachment0 = positionLockAttachment
+    positionLockAlignPos.Position = gymPos
+    positionLockAlignPos.MaxForce = 1e7
+    positionLockAlignPos.MaxVelocity = math.huge
+    positionLockAlignPos.Responsiveness = 200
+    positionLockAlignPos.RigidityEnabled = true
+    positionLockAlignPos.Parent = hrp
+end
+
+-- Night Time Function
+local function setNightTime()
+    Lighting.ClockTime = 0
+    Lighting.Brightness = 0.5
+    Lighting.Ambient = Color3.fromRGB(50, 50, 70)
+    Lighting.OutdoorAmbient = Color3.fromRGB(30, 30, 50)
+end
+
+-- Hitbox Sizes
+local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)
+
+local function setBigHitbox()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = TARGET_HITBOX_SIZE end
+end
+
+local function resetHitbox()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = Vector3.new(2, 2, 1) end
+end
+
+-- Stats & Kill Logic
+local function GetPlayerStatValue(plr, statNames)
+    if not plr then return nil end
+    if type(statNames) == "string" then statNames = {statNames} end
+
+    for _, name in ipairs(statNames) do
+        local val = plr:GetAttribute(name)
+        if val ~= nil then return tonumber(val) end
+    end
+
+    local stats = plr:FindFirstChild("leaderstats")
+    if stats then
+        for _, name in ipairs(statNames) do
+            local v = stats:FindFirstChild(name)
+            if v and v:IsA("ValueBase") then return tonumber(v.Value) end
+        end
+    end
+    return nil
+end
+
+local function GetLocalPlayerDamage()
+    return GetPlayerStatValue(LocalPlayer, {"Damage", "DMG", "Attack", "Strength", "Str"}) or 1
+end
+
+local function GetTargetHealth(target)
+    local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+    return hum and hum.MaxHealth or 100
+end
+
+local function ShouldKillPlayer(target)
+    if not KillOnlyWeakerEnabled then return true end
+    local myDmg = GetLocalPlayerDamage()
+    local theirHP = GetTargetHealth(target)
+    return math.ceil(theirHP / myDmg) <= 5
+end
+
+-- Character vars
+local Character, Humanoid, Hand, Punch, HRP
+local LastAttack = 0
+
+local function UpdateAll()
+    Character = LocalPlayer.Character
+    if not Character then return end
+    Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    Hand = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
+    Punch = Character:FindFirstChild("Punch")
+    HRP = Character:FindFirstChild("HumanoidRootPart")
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(2)
+    UpdateAll()
+    if AutoTPKingGymEnabled and HRP then
+        HRP.CFrame = gymCFrame
+        task.wait(0.5)
+    end
+    if AutoLockPositionEnabled then
+        task.wait(0.5)
+        setupPositionLock()
+    end
+    if AutoSetNightTimeEnabled then
+        task.wait(0.3)
+        setNightTime()
+    end
+    if AutoBigHitboxEnabled then
+        task.spawn(function()
+            task.wait(0.8)
+            setBigHitbox()
+        end)
+    end
+end)
+
+UpdateAll()
+
+-- Anti-AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Suppress teleport failure popups
+pcall(function()
+    TeleportService.TeleportInitFailed:Connect(function(player, result, msg)
+        -- silent fail
+    end)
+end)
+
+-- Server Hop Function
+local function ServerHop()
+    local placeId = game.PlaceId
+    local myJobId = game.JobId
+
+    for attempt = 1, 6 do
+        local success, response = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"))
+        end)
+
+        if not success or not response or not response.data then
+            task.wait(2 + attempt)
+            continue
+        end
+
+        local candidates = {}
+        for _, srv in ipairs(response.data) do
+            if srv.id == myJobId then continue end
+            if srv.playing >= srv.maxPlayers then continue end
+            if srv.playing < 8 then continue end
+            local fill = srv.playing / srv.maxPlayers
+            if fill > 0.25 and fill < 0.9 then
+                table.insert(candidates, srv)
+            end
+        end
+
+        if #candidates == 0 then
+            task.wait(3 + attempt * 1.5)
+            continue
+        end
+
+        local target = candidates[math.random(1, #candidates)]
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
+        end)
+
+        task.wait(5 + attempt * 2)
+    end
+    warn("Server hop exhausted attempts")
+end
+
+-- Main Loop
+RunService.Heartbeat:Connect(function()
+    -- Server Hop
+    if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
+        LastServerHop = os.clock()
+        task.spawn(ServerHop)
+    end
+
+    -- Auto Night Time
+    if AutoSetNightTimeEnabled and math.floor(os.clock()) % 5 == 0 then
+        setNightTime()
+    end
+
+    -- Auto Big Hitbox
+    if AutoBigHitboxEnabled and math.floor(os.clock() * 10) % 3 == 0 then
+        setBigHitbox()
+    end
+
+    -- Auto Lock Position
+    if AutoLockPositionEnabled and HRP then
+        if positionLockAlignPos then
+            positionLockAlignPos.Position = gymPos
+        end
+        if math.floor(os.clock() * 20) % 3 == 0 then
+            HRP.CFrame = CFrame.new(gymPos) * HRP.CFrame.Rotation
+        end
+    end
+
+    UpdateAll()
+
+    if not AutoFarmEnabled or not Character or not Humanoid or Humanoid.Health <= 0 then return end
+    if not Punch then
+        local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
+        if tool then Humanoid:EquipTool(tool) end
+        return
+    end
+
+    if (os.clock() - LastAttack) < 0.08 then return end
+    LastAttack = os.clock()
+
+    -- Attack
+    local attackTime = Punch:FindFirstChild("attackTime")
+    if attackTime then attackTime.Value = 0 end
+    Punch:Activate()
+
+    for _, other in ipairs(Players:GetPlayers()) do
+        if other == LocalPlayer then continue end
+        if not ShouldKillPlayer(other) then continue end
+
+        local char = other.Character
+        if not char then continue end
+
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local head = char:FindFirstChild("Head")
+        local root = char:FindFirstChild("HumanoidRootPart")
+
+        if hum and head and root and hum.Health > 0 and Hand then
+            local wasAnchored = root.Anchored
+            root.Anchored = true
+            firetouchinterest(head, Hand, 0)
+            task.wait()
+            firetouchinterest(head, Hand, 1)
+            root.Anchored = wasAnchored
+        end
+    end
+end)
+
+print("Invincible Kill Farm Loaded! | Night: " .. (AutoSetNightTimeEnabled and "ON" or "OFF") .. " | Big Hitbox: " .. (AutoBigHitboxEnabled and "ON" or "OFF") .. " | Hop Interval: " .. ServerHopInterval .. "s")
+
+-- Evil Karma Counter UI
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "EvilKarmaCounter"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 280, 0, 260)
+mainFrame.Position = UDim2.new(0.5, -140, 0.1, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = mainFrame
+
+-- Title Label
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 50)
+title.BackgroundTransparency = 1
+title.Text = "💀 EVIL KARMA COUNTER 💀"
+title.TextColor3 = Color3.fromRGB(200, 30, 30)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+-- Karma Display
+local karmaLabel = Instance.new("TextLabel")
+karmaLabel.Size = UDim2.new(1, -40, 0, 80)
+karmaLabel.Position = UDim2.new(0, 20, 0, 60)
+karmaLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+karmaLabel.Text = "0"
+karmaLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+karmaLabel.TextScaled = true
+karmaLabel.Font = Enum.Font.GothamBlack
+karmaLabel.Parent = mainFrame
+
+local karmaCorner = Instance.new("UICorner")
+karmaCorner.CornerRadius = UDim.new(0, 10)
+karmaCorner.Parent = karmaLabel
+
+-- Subtitle Label
+local subLabel = Instance.new("TextLabel")
+subLabel.Size = UDim2.new(1, 0, 0, 30)
+subLabel.Position = UDim2.new(0, 0, 0, 145)
+subLabel.BackgroundTransparency = 1
+subLabel.Text = "Evil Karma • Kill good/neutral players"
+subLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+subLabel.TextSize = 14
+subLabel.Font = Enum.Font.Gotham
+subLabel.Parent = mainFrame
+
+-- Buttons Frame
+local buttonFrame = Instance.new("Frame")
+buttonFrame.Size = UDim2.new(1, -40, 0, 50)
+buttonFrame.Position = UDim2.new(0, 20, 0, 170)
+buttonFrame.BackgroundTransparency = 1
+buttonFrame.Parent = mainFrame
+
+-- +1 Button
+local plusButton = Instance.new("TextButton")
+plusButton.Size = UDim2.new(0.48, 0, 1, 0)
+plusButton.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+plusButton.Text = "+1 EVIL KILL"
+plusButton.TextColor3 = Color3.new(1, 1, 1)
+plusButton.TextScaled = true
+plusButton.Font = Enum.Font.GothamBold
+plusButton.Parent = buttonFrame
+
+local plusCorner = Instance.new("UICorner")
+plusCorner.CornerRadius = UDim.new(0, 8)
+plusCorner.Parent = plusButton
+
+-- -1 Button
+local minusButton = Instance.new("TextButton")
+minusButton.Size = UDim2.new(0.48, 0, 1, 0)
+minusButton.Position = UDim2.new(0.52, 0, 0, 0)
+minusButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+minusButton.Text = "-1"
+minusButton.TextColor3 = Color3.new(1, 1, 1)
+minusButton.TextScaled = true
+minusButton.Font = Enum.Font.GothamBold
+minusButton.Parent = buttonFrame
+
+local minusCorner = Instance.new("UICorner")
+minusCorner.CornerRadius = UDim.new(0, 8)
+minusCorner.Parent = minusButton
+
+-- Reset Button
+local resetButton = Instance.new("TextButton")
+resetButton.Size = UDim2.new(1, -40, 0, 30)
+resetButton.Position = UDim2.new(0, 20, 0, 225)
+resetButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+resetButton.Text = "RESET KARMA"
+resetButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+resetButton.TextSize = 14
+resetButton.Font = Enum.Font.Gotham
+resetButton.Parent = mainFrame
+
+local resetCorner = Instance.new("UICorner")
+resetCorner.CornerRadius = UDim.new(0, 8)
+resetCorner.Parent = resetButton
+
+-- Karma Counter Logic
+local evilKarma = 0
+
+local function updateDisplay()
+    karmaLabel.Text = tostring(evilKarma)
+    local intensity = math.min(1, evilKarma / 10000)
+    karmaLabel.TextColor3 = Color3.fromRGB(255, 60 + (195 * (1 - intensity)), 60)
+end
+
+plusButton.MouseButton1Click:Connect(function()
+    evilKarma = evilKarma + 1
+    updateDisplay()
+end)
+
+minusButton.MouseButton1Click:Connect(function()
+    if evilKarma > 0 then
+        evilKarma = evilKarma - 1
+        updateDisplay()
+    end
+end)
+
+resetButton.MouseButton1Click:Connect(function()
+    evilKarma = 0
+    updateDisplay()
+end)
+
+-- Shortcut: Press E to +1
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        evilKarma = evilKarma + 1
+        updateDisplay()
+    end
+end)
+
+-- Initialize display
+updateDisplay()
+
+print("Evil Karma Counter loaded! Drag the window around. Press E for quick +1.")
