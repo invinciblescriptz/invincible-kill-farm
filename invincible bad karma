@@ -73,7 +73,7 @@ end):Set(true)
 local gymCFrame = CFrame.new(-2623.21777, 233.419388, -409.055267, 0.0130337765, 4.06644531e-08, 0.999915063, -5.63387496e-11, 1, -4.0667171e-08, -0.999915063, 4.73712847e-10, 0.0130337765)
 local gymPos = gymCFrame.Position
 
-mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
+mainTabData:AddButton("TP Safe (Manual)", function()
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if hrp then hrp.CFrame = gymCFrame end
 end)
