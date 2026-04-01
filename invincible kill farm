@@ -8,7 +8,7 @@ local player = game:GetService("Players").LocalPlayer
 
 -- Whitelist check with instant kick
 if not table.find(whitelistedUsers, player.Name) then
-    player:Kick("haha you thought you could use this script? think again nerd")
+    player:Kick("fuck you loser dont steal my shit")
     return
 end
 
