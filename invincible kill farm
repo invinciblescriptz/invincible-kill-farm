@@ -50,8 +50,7 @@ mainTabData:AddButton("Set Night Time (Manual)", setNightTime)
 
 -- Credits
 local creditsTab = window:AddTab("Credits")
-creditsTab:AddLabel("made by Invincible")
-creditsTab:AddLabel("https://discord.gg/bUythM4H")
+creditsTab:AddLabel("Made by invincible").TextSize = 8
 
 -- Services
 local Players        = game:GetService("Players")
@@ -355,17 +354,6 @@ killsText.Parent = frame
 local killCorner = Instance.new("UICorner")
 killCorner.CornerRadius = UDim.new(0, 8)
 killCorner.Parent = killsText
-
--- Reset Button
-local resetBtn = Instance.new("TextButton")
-resetBtn.Size = UDim2.new(0.9, 0, 0, 30)
-resetBtn.Position = UDim2.new(0.05, 0, 1, -40)
-resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-resetBtn.Text = "Reset Kills"
-resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-resetBtn.TextSize = 14
-resetBtn.Font = Enum.Font.GothamBold
-resetBtn.Parent = frame
 
 local btnCorner = Instance.new("UICorner")
 btnCorner.CornerRadius = UDim.new(0, 8)
