@@ -17,7 +17,7 @@ local KillOnlyWeakerEnabled = true
 local AutoTPKingGymEnabled = true
 local AutoLockPositionEnabled = true
 local AutoSetNightTimeEnabled = true
-local AutoBigHitboxEnabled = true   -- was NaN, now big size
+local AutoBigHitboxEnabled = true
 
 -- UI Toggles & Slider
 mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
@@ -40,7 +40,6 @@ end):Set(true)
 
 -- Gym location
 local gymCFrame = CFrame.new(-8625.93262, 17.2325287, -5730.47217, 0.765763462, -1.84813775e-09, 0.643122315, -1.32089262e-09, 1, 4.44647785e-09, -0.643122315, -4.25444568e-09, 0.765763462)
-local gymPos = gymCFrame.Position
 
 mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -82,13 +81,13 @@ local function setupPositionLock()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)  -- Try claim ownership
+    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
 
     positionLockAttachment = Instance.new("Attachment", hrp)
 
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
-    positionLockAlignPos.Position = gymPos
+    positionLockAlignPos.Position = gymCFrame.Position
     positionLockAlignPos.MaxForce = 1e7
     positionLockAlignPos.MaxVelocity = math.huge
     positionLockAlignPos.Responsiveness = 200
@@ -104,8 +103,8 @@ local function setNightTime()
     Lighting.OutdoorAmbient = Color3.fromRGB(30,30,50)
 end
 
--- Hitbox (replaces useless NaN)
-local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)  -- tune: 15-40 common
+-- Hitbox
+local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)
 
 local function setBigHitbox()
     local char = LocalPlayer.Character
@@ -119,7 +118,7 @@ local function resetHitbox()
     if hrp then hrp.Size = Vector3.new(2, 2, 1) end
 end
 
--- Stats / Kill logic (unchanged)
+-- Stats
 local function GetPlayerStatValue(plr, statNames)
     if not plr then return nil end
     if type(statNames) == "string" then statNames = {statNames} end
@@ -197,14 +196,7 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Suppress teleport popups
-pcall(function()
-    TeleportService.TeleportInitFailed:Connect(function(player, result, msg)
-        -- Silent fail handling
-    end)
-end)
-
--- Improved Server Hop
+-- Server Hop
 local function ServerHop()
     local placeId = game.PlaceId
     local myJobId = game.JobId
@@ -225,7 +217,7 @@ local function ServerHop()
         for _, srv in response.data do
             if srv.id == myJobId then continue end
             if srv.playing >= srv.maxPlayers then continue end
-            if srv.playing < 8 then continue end  -- avoid dead/low
+            if srv.playing < 8 then continue end
             local fill = srv.playing / srv.maxPlayers
             if fill > 0.25 and fill < 0.9 then
                 table.insert(candidates, srv)
@@ -243,37 +235,31 @@ local function ServerHop()
             TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
         end)
 
-        task.wait(5 + attempt * 2)  -- backoff
+        task.wait(5 + attempt * 2)
     end
-    warn("Server hop exhausted attempts")
 end
 
 -- Main Loop
 RunService.Heartbeat:Connect(function()
-    -- Hop
     if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
         LastServerHop = os.clock()
         task.spawn(ServerHop)
     end
 
-    -- Night refresh
     if AutoSetNightTimeEnabled and math.floor(os.clock()) % 5 == 0 then
         setNightTime()
     end
 
-    -- Hitbox refresh
     if AutoBigHitboxEnabled and math.floor(os.clock() * 10) % 3 == 0 then
         setBigHitbox()
     end
 
-    -- Aggressive position lock
     if AutoLockPositionEnabled and HRP then
         if positionLockAlignPos then
-            positionLockAlignPos.Position = gymPos
+            positionLockAlignPos.Position = gymCFrame.Position
         end
-        -- Fallback force
         if math.floor(os.clock() * 20) % 3 == 0 then
-            HRP.CFrame = CFrame.new(gymPos) * HRP.CFrame.Rotation
+            HRP.CFrame = CFrame.new(gymCFrame.Position) * HRP.CFrame.Rotation
         end
     end
 
@@ -318,128 +304,119 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("Invincible Kill Farm Loaded! | Night: ON | Big Hitbox: " .. (AutoBigHitboxEnabled and "ON" or "OFF") .. " | Hop: " .. ServerHopInterval .. "s")
+print("Invincible Kill Farm Loaded!")
 
--- Muscle Legends Kill Counter UI
--- LocalScript - Paste into your executor (e.g., Synapse, Krnl) in Muscle Legends
+-- ===================================================================
+-- Simple Hand-Made Kill Counter GUI (replaced the old one)
+-- ===================================================================
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Wait for leaderstats
-local leaderstats = player:WaitForChild("leaderstats")
-local killsValue = leaderstats:WaitForChild("Kills")  -- As per game scripts
-
 -- Create ScreenGui
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "KillCounterUI"
-screenGui.Parent = playerGui
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local sg = Instance.new("ScreenGui")
+sg.Name = "KillCounter"
+sg.ResetOnSpawn = false
+sg.Parent = playerGui
 
 -- Main Frame
 local frame = Instance.new("Frame")
-frame.Name = "MainFrame"
-frame.Size = UDim2.new(0, 250, 0, 80)
-frame.Position = UDim2.new(1, -270, 0, 20)  -- Top right
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Size = UDim2.new(0, 220, 0, 130)
+frame.Position = UDim2.new(1, -250, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 frame.BorderSizePixel = 0
-frame.Parent = screenGui
+frame.Parent = sg
 
--- UICorner for rounded edges
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 12)
-uiCorner.Parent = frame
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
 
--- UIGradient for cool effect
-local uiGradient = Instance.new("UIGradient")
-uiGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20))
-}
-uiGradient.Rotation = 45
-uiGradient.Parent = frame
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundTransparency = 1
+title.Text = "Muscle Legends Kill Counter"
+title.TextColor3 = Color3.fromRGB(255, 220, 60)
+title.TextSize = 16
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
 
--- Stroke for border
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(255, 215, 0)  -- Gold border
-uiStroke.Thickness = 2
-uiStroke.Parent = frame
+-- Kill count
+local killsText = Instance.new("TextLabel")
+killsText.Size = UDim2.new(1, -20, 0, 55)
+killsText.Position = UDim2.new(0, 10, 0, 40)
+killsText.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+killsText.Text = "Kills: 0"
+killsText.TextColor3 = Color3.fromRGB(255, 255, 255)
+killsText.TextSize = 28
+killsText.Font = Enum.Font.GothamSemibold
+killsText.Parent = frame
 
--- Title Label
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "Title"
-titleLabel.Size = UDim2.new(1, 0, 0, 30)
-titleLabel.Position = UDim2.new(0, 0, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "💪 KILLS"
-titleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-titleLabel.TextScaled = true
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Parent = frame
+local killCorner = Instance.new("UICorner")
+killCorner.CornerRadius = UDim.new(0, 8)
+killCorner.Parent = killsText
 
--- Kills Label
-local killsLabel = Instance.new("TextLabel")
-killsLabel.Name = "KillsLabel"
-killsLabel.Size = UDim2.new(1, 0, 0, 40)
-killsLabel.Position = UDim2.new(0, 0, 0, 30)
-killsLabel.BackgroundTransparency = 1
-killsLabel.Text = "0"
-killsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-killsLabel.TextScaled = true
-killsLabel.Font = Enum.Font.GothamBlack
-killsLabel.Parent = frame
+-- Reset Button
+local resetBtn = Instance.new("TextButton")
+resetBtn.Size = UDim2.new(0.9, 0, 0, 30)
+resetBtn.Position = UDim2.new(0.05, 0, 1, -40)
+resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+resetBtn.Text = "Reset Kills"
+resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+resetBtn.TextSize = 14
+resetBtn.Font = Enum.Font.GothamBold
+resetBtn.Parent = frame
 
--- Function to format numbers with commas
-local function formatNumber(num)
-    return tostring(num):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-end
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.Parent = resetBtn
 
--- Update function
-local function updateKills()
-    local formattedKills = formatNumber(killsValue.Value)
-    killsLabel.Text = formattedKills
-    -- Tween for pop effect
-    local tween = TweenService:Create(killsLabel, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {TextTransparency = 0.5})
-    tween:Play()
-    tween.Completed:Connect(function()
-        local tween2 = TweenService:Create(killsLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0})
-        tween2:Play()
-    end)
-end
-
--- Connect update
-killsValue.Changed:Connect(updateKills)
-
--- Initial update
-updateKills()
-
--- Make draggable
+-- Make it draggable
 local dragging = false
-local dragStart = nil
-local startPos = nil
+local dragStart
+local startPos
 
-frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-    end
+title.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+	end
 end)
 
-frame.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
+title.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
 end)
 
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
 end)
 
-print("Muscle Legends Kill Counter UI loaded! 💀")
+-- Actual kill tracking from leaderstats
+local leaderstats = player:WaitForChild("leaderstats")
+local killsValue = leaderstats:WaitForChild("Kills")
+
+local kills = 0
+
+local function update()
+	killsText.Text = "Kills: " .. killsValue.Value
+end
+
+killsValue.Changed:Connect(update)
+update()  -- initial update
+
+-- Reset button (resets only the displayed number, not actual leaderstats)
+resetBtn.MouseButton1Click:Connect(function()
+	killsText.Text = "Kills: 0"
+	
+	resetBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+	task.wait(0.1)
+	resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+end)
+
+print("Simple Kill Counter loaded - drag by the title")
