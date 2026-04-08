@@ -1,11 +1,54 @@
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Droid-D3V/Custom-Elerium/refs/heads/main/lib.lua", true))
-if library then
-    library = library()
-    local window = library:AddWindow("invincible killing V2", {
-        main_color = Color3.fromRGB(255, 255, 0), -- Yellow
-        min_size   = Vector2.new(500, 500), -- Increased size
-        can_resize = false,
-    })
-else
-    warn("Failed to load library")
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/invinciblescriptz/invincible-ui/main/kitty%20go%20mow%20mow%20ui.lua", true))()
+
+-- VENTANA PRINCIPAL
+local window = library:AddWindow(string.format("invincible kill farming | V2 || Made by invincible || Hello %s", LocalPlayer.DisplayName), {
+    main_color = Color3.fromRGB(0, 0, 0), -- black
+    min_size = Vector2.new(660, 890),
+    can_resize = false,
+})
+
+-- Create the ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KillsCounterGui"
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
+
+-- Create a draggable Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 80) -- small size
+frame.Position = UDim2.new(0.5, -110, 0, 10) -- top center
+frame.BackgroundColor3 = Color3.new(0, 0, 0) -- black
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+-- Create a TextLabel to display total kills
+local killsLabel = Instance.new("TextLabel")
+killsLabel.Size = UDim2.new(1, -20, 0, 40)
+killsLabel.Position = UDim2.new(0, 10, 0, 10)
+killsLabel.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2) -- dark gray for contrast
+killsLabel.TextColor3 = Color3.new(1, 1, 1)
+killsLabel.Font = Enum.Font.SourceSansBold
+killsLabel.TextSize = 20
+killsLabel.Text = "Kills: 0"
+killsLabel.Parent = frame
+
+-- Initialize kill count
+local totalKills = 0
+
+-- Function to update kills (call this when you detect a kill)
+local function incrementKills()
+    totalKills = totalKills + 1
+    killsLabel.Text = "Kills: " .. totalKills
 end
+
+-- Example: connect to your game's kill event
+-- Replace 'YourKillEvent' with the actual event name
+--[[
+game:GetService("ReplicatedStorage"):WaitForChild("YourKillEvent").OnClientEvent:Connect(function()
+    incrementKills()
+end)
+]]
+
+-- For testing, you can manually call incrementKills() in the console or script
