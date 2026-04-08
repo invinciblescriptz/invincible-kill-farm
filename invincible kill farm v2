@@ -1,7 +1,11 @@
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Droid-D3V/Custom-Elerium/refs/heads/main/lib.lua", true))()
-
-local window = library:AddWindow("olympian Private", {
-    main_color = Color3.fromRGB(255, 255, 0), -- Yellow
-    min_size   = Vector2.new(500, 500), -- Increased size
-    can_resize = false,
-})
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Droid-D3V/Custom-Elerium/refs/heads/main/lib.lua", true))
+if library then
+    library = library()
+    local window = library:AddWindow("invincible killing V2", {
+        main_color = Color3.fromRGB(255, 255, 0), -- Yellow
+        min_size   = Vector2.new(500, 500), -- Increased size
+        can_resize = false,
+    })
+else
+    warn("Failed to load library")
+end
