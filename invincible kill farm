@@ -39,7 +39,7 @@ mainTabData:AddSwitch("Auto Big Hitbox", function(state)
 end):Set(true)
 
 -- Gym location
-local gymCFrame = CFrame.new(-8635.02148, 525.45459, -5732.10449, 0.215023041, 8.64089955e-08, 0.976608992, -2.32993642e-08, 1, -8.33487093e-08, -0.976608992, -4.8324762e-09, 0.215023041)
+local gymCFrame = CFrame.new(-8690.26172, 519.767456, -5833.18652, 0.864206791, -4.81506079e-09, 0.503136754, -8.19953705e-09, 1, 2.36539197e-08, -0.503136754, -2.45673668e-08, 0.864206791)
 
 mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
