@@ -1,96 +1,410 @@
-orkspace.FallenPartsDestroyHeight = 0/0
-local OG_Kills = tonumber(game.Players.LocalPlayer.leaderstats.Kills.Value)
-local currentkills = tonumber(game.Players.LocalPlayer.leaderstats.Kills.Value)
-
-local SafeSpot = Instance.new("Part")
-SafeSpot.Parent = workspace
-SafeSpot.Name = "safety"
-SafeSpot.Position = Vector3.new(0,-1000,0)
-SafeSpot.Size = Vector3.new(500,1,500)
-SafeSpot.Anchored = true
-game.Players.LocalPlayer.Character:MoveTo(workspace.safety.Position)
-
-local function GETOUT()
-local Services = setmetatable({}, {
- __index = function(self, name)
-  local success, cache = pcall(function()
-   return cloneref(game:GetService(name))
-  end)
-  if success then
-   rawset(self, name, cache)
-   return cache
-  else
-   error("Invalid Service: " .. tostring(name))
-  end
- end
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
+local window = library:AddWindow("Invincible Kill Farm", {
+    main_color = Color3.fromRGB(0, 0, 0),
+    min_size = Vector2.new(200, 200),
+    can_resize = false,
+    background_transparency = 1,
 })
-local PlaceId, JobId = game.PlaceId, game.JobId
-local servers = {}
- local req = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
- local body = Services.HttpService:JSONDecode(req)
 
- if body and body.data then
-  for i, v in next, body.data do
-   if type(v) == "table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing < v.maxPlayers and v.id ~= JobId then
-    table.insert(servers, 1, v.id)
-   end
-  end
+-- Main Tab
+local mainTabData, mainTab = window:AddTab("Main")
 
+-- Settings
+local AutoFarmEnabled = true
+local AutoServerHopEnabled = true
+local ServerHopInterval = 30
+local KillOnlyWeakerEnabled = true
+local AutoTPKingGymEnabled = true
+local AutoLockPositionEnabled = true
+local AutoSetNightTimeEnabled = true
+local AutoBigHitboxEnabled = true
+
+-- UI Toggles & Slider
+mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Server Hop", function(state) AutoServerHopEnabled = state end):Set(true)
+mainTabData:AddSlider("Hop Interval (s)", function(value) ServerHopInterval = value end, {min = 5, max = 120}):Set(30)
+mainTabData:AddSwitch("Kill Only Weaker", function(state) KillOnlyWeakerEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state) AutoTPKingGymEnabled = state end):Set(true)
+mainTabData:AddSwitch("Auto Lock Position", function(state)
+    AutoLockPositionEnabled = state
+    if state then setupPositionLock() else clearPositionLock() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Set Night Time", function(state)
+    AutoSetNightTimeEnabled = state
+    if state then setNightTime() end
+end):Set(true)
+mainTabData:AddSwitch("Auto Big Hitbox", function(state)
+    AutoBigHitboxEnabled = state
+    if not state then resetHitbox() end
+end):Set(true)
+
+-- Gym location
+local gymCFrame = CFrame.new(-8913.48535, 12.495101, -6018.11084, 0.366716683, 2.72033152e-08, 0.930332661, 6.42274287e-08, 1, -5.45574572e-08, -0.930332661, 7.97600066e-08, 0.366716683)
+
+mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.CFrame = gymCFrame end
+end)
+
+mainTabData:AddButton("Set Night Time (Manual)", setNightTime)
+
+-- Credits
+local creditsTab = window:AddTab("Credits")
+creditsTab:AddLabel("Made by invincible").TextSize = 8
+
+-- Services
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local VirtualUser    = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService    = game:GetService("HttpService")
+local Lighting       = game:GetService("Lighting")
+local LocalPlayer    = Players.LocalPlayer
+
+if getgenv().AutoKillLoaded then return end
+getgenv().AutoKillLoaded = true
+
+local LastServerHop = os.clock()
+
+-- Position Lock
+local positionLockAlignPos, positionLockAttachment
+
+local function clearPositionLock()
+    if positionLockAlignPos then positionLockAlignPos:Destroy() positionLockAlignPos = nil end
+    if positionLockAttachment then positionLockAttachment:Destroy() positionLockAttachment = nil end
 end
-if #servers >= 1 then
-Services.TeleportService:TeleportToPlaceInstance(PlaceId, servers[math.random(1, #servers)], game.Players.LocalPlayer)
+
+local function setupPositionLock()
+    clearPositionLock()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
+
+    positionLockAttachment = Instance.new("Attachment", hrp)
+
+    positionLockAlignPos = Instance.new("AlignPosition")
+    positionLockAlignPos.Attachment0 = positionLockAttachment
+    positionLockAlignPos.Position = gymCFrame.Position
+    positionLockAlignPos.MaxForce = 1e7
+    positionLockAlignPos.MaxVelocity = math.huge
+    positionLockAlignPos.Responsiveness = 200
+    positionLockAlignPos.RigidityEnabled = true
+    positionLockAlignPos.Parent = hrp
 end
+
+-- Night Time
+local function setNightTime()
+    Lighting.ClockTime = 0
+    Lighting.Brightness = 0.5
+    Lighting.Ambient = Color3.fromRGB(50,50,70)
+    Lighting.OutdoorAmbient = Color3.fromRGB(30,30,50)
 end
 
+-- Hitbox
+local TARGET_HITBOX_SIZE = Vector3.new(25, 25, 25)
 
+local function setBigHitbox()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = TARGET_HITBOX_SIZE end
+end
 
-while true do
-task.wait(0.09)
-pcall(function()
-        local player = game.Players.LocalPlayer
-        currentkills = tonumber(game.Players.LocalPlayer.leaderstats.Kills.Value)
-        -- Auto punch setup
-        local punch = player.Backpack:FindFirstChild("Punch") or (player.Character and player.Character:FindFirstChild("Punch"))
-if punch.Parent == player.Backpack then
-punch.Parent = player.Character
-else
-        -- Auto kill logic
-        for _, target in ipairs(game.Players:GetPlayers()) do
-            if (target ~= game.Players.LocalPlayer and target.Durability.Value <= player.leaderstats.Strength.Value * 2 and target.leaderstats.Rebirths.Value <= 200000) then
-                local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-                local rHand = player.Character and player.Character:FindFirstChild("RightHand")
-                local lHand = player.Character and player.Character:FindFirstChild("LeftHand")
-game.Players.LocalPlayer.muscleEvent:FireServer("punch","rightHand")
-                if root and rHand and lHand then
-                    firetouchinterest(rHand, root, 1)
-                    firetouchinterest(lHand, root, 1)
-                    firetouchinterest(rHand, root, 0)
-                    firetouchinterest(lHand, root, 0)
-                end
-            end
-       end
-       if game.Players.LocalPlayer.Character.Humanoid.Health <= game.Players.LocalPlayer.Character.Humanoid.MaxHealth / 10 or game.Workspace.DistributedGameTime >= 120 then
-GETOUT()
+local function resetHitbox()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.Size = Vector3.new(2, 2, 1) end
+end
+
+-- Stats
+local function GetPlayerStatValue(plr, statNames)
+    if not plr then return nil end
+    if type(statNames) == "string" then statNames = {statNames} end
+    for _, name in statNames do
+        local val = plr:GetAttribute(name)
+        if val ~= nil then return tonumber(val) end
+    end
+    local stats = plr:FindFirstChild("leaderstats")
+    if stats then
+        for _, name in statNames do
+            local v = stats:FindFirstChild(name)
+            if v and v:IsA("ValueBase") then return tonumber(v.Value) end
         end
+    end
+    return nil
 end
+
+local function GetLocalPlayerDamage()
+    return GetPlayerStatValue(LocalPlayer, {"Damage", "DMG", "Attack", "Strength", "Str"}) or 1
+end
+
+local function GetTargetHealth(target)
+    local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+    return hum and hum.MaxHealth or 100
+end
+
+local function ShouldKillPlayer(target)
+    if not KillOnlyWeakerEnabled then return true end
+    local myDmg = GetLocalPlayerDamage()
+    local theirHP = GetTargetHealth(target)
+    return math.ceil(theirHP / myDmg) <= 5
+end
+
+-- Character vars
+local Character, Humanoid, Hand, Punch, HRP
+local LastAttack = 0
+
+local function UpdateAll()
+    Character = LocalPlayer.Character
+    if not Character then return end
+    Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    Hand = Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm")
+    Punch = Character:FindFirstChild("Punch")
+    HRP = Character:FindFirstChild("HumanoidRootPart")
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(2)
+    UpdateAll()
+    if AutoTPKingGymEnabled and HRP then
+        HRP.CFrame = gymCFrame
+        task.wait(0.5)
+    end
+    if AutoLockPositionEnabled then
+        task.wait(0.5)
+        setupPositionLock()
+    end
+    if AutoSetNightTimeEnabled then
+        task.wait(0.3)
+        setNightTime()
+    end
+    if AutoBigHitboxEnabled then
+        task.spawn(function()
+            task.wait(0.8)
+            setBigHitbox()
+        end)
+    end
 end)
 
+UpdateAll()
 
-game:GetService("RunService").RenderStepped:Connect(function()
-if #game.Players:GetPlayers() <= 9 then
-wait(6)
-GETOUT()
-end
+-- Anti-AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
 end)
+
+-- Server Hop
+local function ServerHop()
+    local placeId = game.PlaceId
+    local myJobId = game.JobId
+
+    for attempt = 1, 6 do
+        local success, response = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(
+                "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
+            ))
+        end)
+
+        if not success or not response or not response.data then
+            task.wait(2 + attempt)
+            continue
+        end
+
+        local candidates = {}
+        for _, srv in response.data do
+            if srv.id == myJobId then continue end
+            if srv.playing >= srv.maxPlayers then continue end
+            if srv.playing < 8 then continue end
+            local fill = srv.playing / srv.maxPlayers
+            if fill > 0.25 and fill < 0.9 then
+                table.insert(candidates, srv)
+            end
+        end
+
+        if #candidates == 0 then
+            task.wait(3 + attempt * 1.5)
+            continue
+        end
+
+        local target = candidates[math.random(1, #candidates)]
+
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
+        end)
+
+        task.wait(5 + attempt * 2)
+    end
 end
 
+-- Main Loop
+RunService.Heartbeat:Connect(function()
+    if AutoServerHopEnabled and (os.clock() - LastServerHop) >= ServerHopInterval then
+        LastServerHop = os.clock()
+        task.spawn(ServerHop)
+    end
 
+    if AutoSetNightTimeEnabled and math.floor(os.clock()) % 5 == 0 then
+        setNightTime()
+    end
 
+    if AutoBigHitboxEnabled and math.floor(os.clock() * 10) % 3 == 0 then
+        setBigHitbox()
+    end
 
+    if AutoLockPositionEnabled and HRP then
+        if positionLockAlignPos then
+            positionLockAlignPos.Position = gymCFrame.Position
+        end
+        if math.floor(os.clock() * 20) % 3 == 0 then
+            HRP.CFrame = CFrame.new(gymCFrame.Position) * HRP.CFrame.Rotation
+        end
+    end
 
+    UpdateAll()
 
+    if not AutoFarmEnabled or not Character or not Humanoid or Humanoid.Health <= 0 then
+        return
+    end
 
---Anti zaechiversjjsks siiajakska
+    if not Punch then
+        local tool = LocalPlayer.Backpack:FindFirstChild("Punch")
+        if tool then Humanoid:EquipTool(tool) end
+        return
+    end
 
+    if (os.clock() - LastAttack) < 0.08 then return end
+    LastAttack = os.clock()
 
+    local attackTime = Punch:FindFirstChild("attackTime")
+    if attackTime then attackTime.Value = 0 end
+    Punch:Activate()
 
+    for _, other in Players:GetPlayers() do
+        if other == LocalPlayer then continue end
+        if not ShouldKillPlayer(other) then continue end
+
+        local char = other.Character
+        if not char then continue end
+
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local head = char:FindFirstChild("Head")
+        local root = char:FindFirstChild("HumanoidRootPart")
+
+        if hum and head and root and hum.Health > 0 and Hand then
+            local wasAnchored = root.Anchored
+            root.Anchored = true
+            firetouchinterest(head, Hand, 0)
+            task.wait()
+            firetouchinterest(head, Hand, 1)
+            root.Anchored = wasAnchored
+        end
+    end
+end)
+
+print("Invincible Kill Farm Loaded!")
+
+-- ===================================================================
+-- Simple Hand-Made Kill Counter GUI (replaced the old one)
+-- ===================================================================
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Create ScreenGui
+local sg = Instance.new("ScreenGui")
+sg.Name = "KillCounter"
+sg.ResetOnSpawn = false
+sg.Parent = playerGui
+
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 130)
+frame.Position = UDim2.new(1, -250, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+frame.BorderSizePixel = 0
+frame.Parent = sg
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundTransparency = 1
+title.Text = "Muscle Legends Kill Counter"
+title.TextColor3 = Color3.fromRGB(255, 220, 60)
+title.TextSize = 16
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+-- Kill count
+local killsText = Instance.new("TextLabel")
+killsText.Size = UDim2.new(1, -20, 0, 55)
+killsText.Position = UDim2.new(0, 10, 0, 40)
+killsText.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+killsText.Text = "Kills: 0"
+killsText.TextColor3 = Color3.fromRGB(255, 255, 255)
+killsText.TextSize = 28
+killsText.Font = Enum.Font.GothamSemibold
+killsText.Parent = frame
+
+local killCorner = Instance.new("UICorner")
+killCorner.CornerRadius = UDim.new(0, 8)
+killCorner.Parent = killsText
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.Parent = resetBtn
+
+-- Make it draggable
+local dragging = false
+local dragStart
+local startPos
+
+title.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+	end
+end)
+
+title.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+-- Actual kill tracking from leaderstats
+local leaderstats = player:WaitForChild("leaderstats")
+local killsValue = leaderstats:WaitForChild("Kills")
+
+local kills = 0
+
+local function update()
+	killsText.Text = "Kills: " .. killsValue.Value
+end
+
+killsValue.Changed:Connect(update)
+update()  -- initial update
+
+-- Reset button (resets only the displayed number, not actual leaderstats)
+resetBtn.MouseButton1Click:Connect(function()
+	killsText.Text = "Kills: 0"
+	
+	resetBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+	task.wait(0.1)
+	resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+end)
+
+print("Simple Kill Counter loaded - drag by the title")
