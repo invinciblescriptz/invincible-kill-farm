@@ -305,106 +305,141 @@ end)
 
 print("Invincible Kill Farm Loaded!")
 
--- ===================================================================
--- Simple Hand-Made Kill Counter GUI (replaced the old one)
--- ===================================================================
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invincible Killing</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+        }
+        
+        .overlay {
+            width: 390px;
+            height: 125px;
+            background: #0a0a0a;
+            border: 4px solid #1f1f1f;
+            box-shadow: 0 0 30px rgba(255, 40, 40, 0.8),
+                        inset 0 0 20px rgba(255, 255, 255, 0.1);
+            position: fixed;
+            left: 60px;
+            top: 60px;
+            color: white;
+            user-select: none;
+            padding: 15px 25px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .title {
+            color: #ff2222;
+            font-size: 23px;
+            letter-spacing: 4px;
+            text-shadow: 0 0 15px #ff0000;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .kills-container {
+            display: flex;
+            align-items: center;
+            font-size: 29px;
+            gap: 15px;
+        }
+        
+        .label {
+            color: #eeeeee;
+        }
+        
+        .counter {
+            color: #ffffff;
+            font-size: 38px;
+            letter-spacing: 5px;
+            text-shadow: 0 0 20px #00ffaa;
+            min-width: 170px;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="gui">
+        <div class="title">INVINCIBLE KILLING</div>
+        <div class="kills-container">
+            <span class="label">Kills:</span>
+            <span id="count" class="counter">000000</span>
+        </div>
+    </div>
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
--- Create ScreenGui
-local sg = Instance.new("ScreenGui")
-sg.Name = "KillCounter"
-sg.ResetOnSpawn = false
-sg.Parent = playerGui
-
--- Main Frame
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 130)
-frame.Position = UDim2.new(1, -250, 0, 50)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-frame.BorderSizePixel = 0
-frame.Parent = sg
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = frame
-
--- Title
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35)
-title.BackgroundTransparency = 1
-title.Text = "Muscle Legends Kill Counter"
-title.TextColor3 = Color3.fromRGB(255, 220, 60)
-title.TextSize = 16
-title.Font = Enum.Font.GothamBold
-title.Parent = frame
-
--- Kill count
-local killsText = Instance.new("TextLabel")
-killsText.Size = UDim2.new(1, -20, 0, 55)
-killsText.Position = UDim2.new(0, 10, 0, 40)
-killsText.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-killsText.Text = "Kills: 0"
-killsText.TextColor3 = Color3.fromRGB(255, 255, 255)
-killsText.TextSize = 28
-killsText.Font = Enum.Font.GothamSemibold
-killsText.Parent = frame
-
-local killCorner = Instance.new("UICorner")
-killCorner.CornerRadius = UDim.new(0, 8)
-killCorner.Parent = killsText
-
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 8)
-btnCorner.Parent = resetBtn
-
--- Make it draggable
-local dragging = false
-local dragStart
-local startPos
-
-title.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = frame.Position
-	end
-end)
-
-title.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
-end)
-
--- Actual kill tracking from leaderstats
-local leaderstats = player:WaitForChild("leaderstats")
-local killsValue = leaderstats:WaitForChild("Kills")
-
-local kills = 0
-
-local function update()
-	killsText.Text = "Kills: " .. killsValue.Value
-end
-
-killsValue.Changed:Connect(update)
-update()  -- initial update
-
--- Reset button (resets only the displayed number, not actual leaderstats)
-resetBtn.MouseButton1Click:Connect(function()
-	killsText.Text = "Kills: 0"
-	
-	resetBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-	task.wait(0.1)
-	resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-end)
-
-print("Simple Kill Counter loaded - drag by the title")
+    <script>
+        let kills = 0;
+        const countEl = document.getElementById('count');
+        
+        function updateDisplay() {
+            countEl.textContent = String(kills).padStart(6, '0');
+        }
+        
+        function addKill() {
+            kills++;
+            updateDisplay();
+            
+            // Flash effect like in-game
+            const gui = document.getElementById('gui');
+            gui.style.boxShadow = '0 0 45px rgba(0, 255, 180, 0.9)';
+            setTimeout(() => {
+                gui.style.boxShadow = '0 0 30px rgba(255, 40, 40, 0.8)';
+            }, 120);
+        }
+        
+        // === Controls ===
+        const gui = document.getElementById('gui');
+        
+        // Click anywhere on the box to +1 kill
+        gui.addEventListener('click', addKill);
+        
+        // Drag the box
+        let isDragging = false;
+        let currentX = 60, currentY = 60;
+        let initialX, initialY;
+        
+        gui.addEventListener('mousedown', e => {
+            isDragging = true;
+            initialX = e.clientX - currentX;
+            initialY = e.clientY - currentY;
+        });
+        
+        document.addEventListener('mousemove', e => {
+            if (isDragging) {
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                gui.style.left = currentX + 'px';
+                gui.style.top = currentY + 'px';
+            }
+        });
+        
+        document.addEventListener('mouseup', () => isDragging = false);
+        
+        // Keyboard: Press K for +1 kill
+        document.addEventListener('keydown', e => {
+            if (e.key.toLowerCase() === 'k') addKill();
+        });
+        
+        // Load saved kills
+        const saved = localStorage.getItem('invincibleKills');
+        if (saved) kills = parseInt(saved);
+        updateDisplay();
+        
+        // Auto-save
+        setInterval(() => localStorage.setItem('invincibleKills', kills), 2500);
+    </script>
+</body>
+</html>
