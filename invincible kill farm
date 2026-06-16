@@ -253,3 +253,87 @@ RunService.Heartbeat:Connect(function()
 end)
 
 print("Invincible Kill Farm Loaded! (UI Removed)")
+
+-- // INVINCIBLE PRIVATE KILLING - Auto Kill Counter
+-- Paste this as a LocalScript inside StarterPlayerScripts
+
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+local kills = 455036
+
+-- Create GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InvincibleKillCounter"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 380, 0, 110)
+frame.Position = UDim2.new(0, 50, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
+frame.BorderSizePixel = 4
+frame.BorderColor3 = Color3.fromRGB(50, 50, 50)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.Text = "INVINCIBLE PRIVATE KILLING"
+title.TextColor3 = Color3.fromRGB(255, 51, 0)
+title.TextScaled = true
+title.Font = Enum.Font.Code
+title.Parent = frame
+
+local killsLabel = Instance.new("TextLabel")
+killsLabel.Size = UDim2.new(1, 0, 0, 50)
+killsLabel.Position = UDim2.new(0, 0, 0, 45)
+killsLabel.BackgroundTransparency = 1
+killsLabel.Text = "Kills: " .. kills
+killsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+killsLabel.TextScaled = true
+killsLabel.Font = Enum.Font.Code
+killsLabel.Parent = frame
+
+-- Make it look closer to the image
+frame.BackgroundTransparency = 0.1
+title.TextStrokeTransparency = 0.7
+killsLabel.TextStrokeTransparency = 0.8
+
+-- Auto Kill Detection (Common method in Muscle Legends)
+local function onCharacterAdded(char)
+    character = char
+    local humanoid = char:WaitForChild("Humanoid")
+    
+    humanoid.Died:Connect(function()
+        -- This detects when YOU die, not when you kill others
+        -- Muscle Legends usually uses leaderstats or custom events
+    end)
+end
+
+-- Better method: Listen for leaderstats if the game has it
+local leaderstats = player:WaitForChild("leaderstats", 10)
+if leaderstats then
+    local killsStat = leaderstats:FindFirstChild("Kills") or leaderstats:FindFirstChild("kills")
+    if killsStat then
+        killsStat.Changed:Connect(function()
+            kills = killsStat.Value
+            killsLabel.Text = "Kills: " .. kills
+        end)
+        kills = killsStat.Value
+        killsLabel.Text = "Kills: " .. kills
+    end
+end
+
+-- Alternative: Manual increment (Press K to test)
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.K then
+        kills += 10
+        killsLabel.Text = "Kills: " .. kills
+    end
+end)
+
+print("✅ INVINCIBLE PRIVATE KILLING Kill Counter Loaded!")
+print("Drag the frame. Press K to add 10 kills for testing.")
