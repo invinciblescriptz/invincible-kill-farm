@@ -1,15 +1,8 @@
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
-local window = library:AddWindow("Invincible Kill Farm", {
-    main_color = Color3.fromRGB(0, 0, 0),
-    min_size = Vector2.new(200, 200),
-    can_resize = false,
-    background_transparency = 1,
-})
+-- Invincible Kill Farm (UI Removed)
+if getgenv().AutoKillLoaded then return end
+getgenv().AutoKillLoaded = true
 
--- Main Tab
-local mainTabData, mainTab = window:AddTab("Main")
-
--- Settings
+-- ================== SETTINGS ==================
 local AutoFarmEnabled = true
 local AutoServerHopEnabled = true
 local ServerHopInterval = 30
@@ -18,51 +11,18 @@ local AutoTPKingGymEnabled = true
 local AutoLockPositionEnabled = true
 local AutoSetNightTimeEnabled = true
 local AutoBigHitboxEnabled = true
+-- =============================================
 
--- UI Toggles & Slider
-mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto Server Hop", function(state) AutoServerHopEnabled = state end):Set(true)
-mainTabData:AddSlider("Hop Interval (s)", function(value) ServerHopInterval = value end, {min = 5, max = 120}):Set(30)
-mainTabData:AddSwitch("Kill Only Weaker", function(state) KillOnlyWeakerEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state) AutoTPKingGymEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto Lock Position", function(state)
-    AutoLockPositionEnabled = state
-    if state then setupPositionLock() else clearPositionLock() end
-end):Set(true)
-mainTabData:AddSwitch("Auto Set Night Time", function(state)
-    AutoSetNightTimeEnabled = state
-    if state then setNightTime() end
-end):Set(true)
-mainTabData:AddSwitch("Auto Big Hitbox", function(state)
-    AutoBigHitboxEnabled = state
-    if not state then resetHitbox() end
-end):Set(true)
-
--- Gym location
 local gymCFrame = CFrame.new(2481.68628, 87.2678528, 1075.55579, 0.0314222872, -0.152206957, 0.987849057, -1.74193615e-09, 0.9883371, 0.152282164, -0.999506176, -0.00478505576, 0.0310558118)
 
-mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.CFrame = gymCFrame end
-end)
-
-mainTabData:AddButton("Set Night Time (Manual)", setNightTime)
-
--- Credits
-local creditsTab = window:AddTab("Credits")
-creditsTab:AddLabel("Made by invincible").TextSize = 8
-
 -- Services
-local Players        = game:GetService("Players")
-local RunService     = game:GetService("RunService")
-local VirtualUser    = game:GetService("VirtualUser")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
-local HttpService    = game:GetService("HttpService")
-local Lighting       = game:GetService("Lighting")
-local LocalPlayer    = Players.LocalPlayer
-
-if getgenv().AutoKillLoaded then return end
-getgenv().AutoKillLoaded = true
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local LocalPlayer = Players.LocalPlayer
 
 local LastServerHop = os.clock()
 
@@ -79,11 +39,8 @@ local function setupPositionLock()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
-
     positionLockAttachment = Instance.new("Attachment", hrp)
-
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
     positionLockAlignPos.Position = gymCFrame.Position
@@ -151,7 +108,7 @@ local function ShouldKillPlayer(target)
     return math.ceil(theirHP / myDmg) <= 5
 end
 
--- Character vars
+-- Character
 local Character, Humanoid, Hand, Punch, HRP
 local LastAttack = 0
 
@@ -199,19 +156,16 @@ end)
 local function ServerHop()
     local placeId = game.PlaceId
     local myJobId = game.JobId
-
     for attempt = 1, 6 do
         local success, response = pcall(function()
             return HttpService:JSONDecode(game:HttpGet(
                 "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
             ))
         end)
-
         if not success or not response or not response.data then
             task.wait(2 + attempt)
             continue
         end
-
         local candidates = {}
         for _, srv in response.data do
             if srv.id == myJobId then continue end
@@ -222,18 +176,14 @@ local function ServerHop()
                 table.insert(candidates, srv)
             end
         end
-
         if #candidates == 0 then
             task.wait(3 + attempt * 1.5)
             continue
         end
-
         local target = candidates[math.random(1, #candidates)]
-
         pcall(function()
             TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
         end)
-
         task.wait(5 + attempt * 2)
     end
 end
@@ -287,7 +237,6 @@ RunService.Heartbeat:Connect(function()
 
         local char = other.Character
         if not char then continue end
-
         local hum = char:FindFirstChildOfClass("Humanoid")
         local head = char:FindFirstChild("Head")
         local root = char:FindFirstChild("HumanoidRootPart")
@@ -303,143 +252,4 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("Invincible Kill Farm Loaded!")
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invincible Killing</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        
-        body {
-            margin: 0;
-            padding: 0;
-            background: transparent;
-            font-family: 'Press Start 2P', cursive;
-            overflow: hidden;
-        }
-        
-        .overlay {
-            width: 390px;
-            height: 125px;
-            background: #0a0a0a;
-            border: 4px solid #1f1f1f;
-            box-shadow: 0 0 30px rgba(255, 40, 40, 0.8),
-                        inset 0 0 20px rgba(255, 255, 255, 0.1);
-            position: fixed;
-            left: 60px;
-            top: 60px;
-            color: white;
-            user-select: none;
-            padding: 15px 25px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .title {
-            color: #ff2222;
-            font-size: 23px;
-            letter-spacing: 4px;
-            text-shadow: 0 0 15px #ff0000;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-        
-        .kills-container {
-            display: flex;
-            align-items: center;
-            font-size: 29px;
-            gap: 15px;
-        }
-        
-        .label {
-            color: #eeeeee;
-        }
-        
-        .counter {
-            color: #ffffff;
-            font-size: 38px;
-            letter-spacing: 5px;
-            text-shadow: 0 0 20px #00ffaa;
-            min-width: 170px;
-        }
-    </style>
-</head>
-<body>
-    <div class="overlay" id="gui">
-        <div class="title">INVINCIBLE KILLING</div>
-        <div class="kills-container">
-            <span class="label">Kills:</span>
-            <span id="count" class="counter">000000</span>
-        </div>
-    </div>
-
-    <script>
-        let kills = 0;
-        const countEl = document.getElementById('count');
-        
-        function updateDisplay() {
-            countEl.textContent = String(kills).padStart(6, '0');
-        }
-        
-        function addKill() {
-            kills++;
-            updateDisplay();
-            
-            // Flash effect like in-game
-            const gui = document.getElementById('gui');
-            gui.style.boxShadow = '0 0 45px rgba(0, 255, 180, 0.9)';
-            setTimeout(() => {
-                gui.style.boxShadow = '0 0 30px rgba(255, 40, 40, 0.8)';
-            }, 120);
-        }
-        
-        // === Controls ===
-        const gui = document.getElementById('gui');
-        
-        // Click anywhere on the box to +1 kill
-        gui.addEventListener('click', addKill);
-        
-        // Drag the box
-        let isDragging = false;
-        let currentX = 60, currentY = 60;
-        let initialX, initialY;
-        
-        gui.addEventListener('mousedown', e => {
-            isDragging = true;
-            initialX = e.clientX - currentX;
-            initialY = e.clientY - currentY;
-        });
-        
-        document.addEventListener('mousemove', e => {
-            if (isDragging) {
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-                gui.style.left = currentX + 'px';
-                gui.style.top = currentY + 'px';
-            }
-        });
-        
-        document.addEventListener('mouseup', () => isDragging = false);
-        
-        // Keyboard: Press K for +1 kill
-        document.addEventListener('keydown', e => {
-            if (e.key.toLowerCase() === 'k') addKill();
-        });
-        
-        // Load saved kills
-        const saved = localStorage.getItem('invincibleKills');
-        if (saved) kills = parseInt(saved);
-        updateDisplay();
-        
-        // Auto-save
-        setInterval(() => localStorage.setItem('invincibleKills', kills), 2500);
-    </script>
-</body>
-</html>
+print("Invincible Kill Farm Loaded! (UI Removed)")
