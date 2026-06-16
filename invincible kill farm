@@ -5,7 +5,7 @@ getgenv().AutoKillLoaded = true
 -- ================== SETTINGS ==================
 local AutoFarmEnabled = true
 local AutoServerHopEnabled = true
-local ServerHopInterval = 30
+local ServerHopInterval = 60
 local KillOnlyWeakerEnabled = true
 local AutoTPKingGymEnabled = true
 local AutoLockPositionEnabled = true
