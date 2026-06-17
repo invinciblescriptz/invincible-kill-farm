@@ -254,11 +254,10 @@ end)
 
 print("Invincible Kill Farm Loaded! (UI Removed)")
 
--- // INVINCIBLE PRIVATE KILLING - Auto Kill Counter
+-- // INVINCIBLE PRIVATE KILLING - Auto Kill Counter + Players
 -- Paste as LocalScript in StarterPlayerScripts
 
 local player = game.Players.LocalPlayer
-
 local kills = 455036
 
 -- Create GUI
@@ -268,8 +267,8 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 260, 0, 68)  -- Smaller size
-frame.Position = UDim2.new(0.5, -130, 0, 85)  -- Under Strength/Gems area
+frame.Size = UDim2.new(0, 260, 0, 82)
+frame.Position = UDim2.new(0.5, -130, 0, 45)  -- Raised higher
 frame.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
 frame.BorderSizePixel = 3
 frame.BorderColor3 = Color3.fromRGB(45, 45, 45)
@@ -283,7 +282,7 @@ corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = frame
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 28)
+title.Size = UDim2.new(1, 0, 0, 26)
 title.BackgroundTransparency = 1
 title.Text = "INVINCIBLE PRIVATE KILLING"
 title.TextColor3 = Color3.fromRGB(255, 55, 0)
@@ -293,8 +292,8 @@ title.TextStrokeTransparency = 0.6
 title.Parent = frame
 
 local killsLabel = Instance.new("TextLabel")
-killsLabel.Size = UDim2.new(1, 0, 0, 32)
-killsLabel.Position = UDim2.new(0, 0, 0, 30)
+killsLabel.Size = UDim2.new(1, 0, 0, 26)
+killsLabel.Position = UDim2.new(0, 0, 0, 28)
 killsLabel.BackgroundTransparency = 1
 killsLabel.Text = "Kills: " .. kills
 killsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -303,7 +302,18 @@ killsLabel.Font = Enum.Font.Code
 killsLabel.TextStrokeTransparency = 0.7
 killsLabel.Parent = frame
 
--- Auto kill detection (leaderstats)
+local playersLabel = Instance.new("TextLabel")
+playersLabel.Size = UDim2.new(1, 0, 0, 22)
+playersLabel.Position = UDim2.new(0, 0, 0, 55)
+playersLabel.BackgroundTransparency = 1
+playersLabel.Text = "Players: " .. #game.Players:GetPlayers()
+playersLabel.TextColor3 = Color3.fromRGB(180, 255, 180)
+playersLabel.TextScaled = true
+playersLabel.Font = Enum.Font.Code
+playersLabel.TextStrokeTransparency = 0.7
+playersLabel.Parent = frame
+
+-- Update Kills from leaderstats
 local function updateKills()
     local leaderstats = player:FindFirstChild("leaderstats")
     if leaderstats then
@@ -315,18 +325,11 @@ local function updateKills()
     end
 end
 
--- Check for leaderstats changes
 player:WaitForChild("leaderstats", 15)
 updateKills()
 
 if player:FindFirstChild("leaderstats") then
     local leaderstats = player.leaderstats
-    leaderstats.ChildAdded:Connect(function(child)
-        if child.Name:lower() == "kills" then
-            child.Changed:Connect(updateKills)
-        end
-    end)
-    
     for _, stat in pairs(leaderstats:GetChildren()) do
         if stat.Name:lower() == "kills" then
             stat.Changed:Connect(updateKills)
@@ -334,11 +337,14 @@ if player:FindFirstChild("leaderstats") then
     end
 end
 
--- Fallback: Try to detect kills through humanoid (if leaderstats doesn't work)
-player.CharacterAdded:Connect(function(char)
-    local humanoid = char:WaitForChild("Humanoid")
-    -- Some games fire events on kill, this is a backup
-end)
+-- Update Players Count
+local function updatePlayers()
+    playersLabel.Text = "Players: " .. #game.Players:GetPlayers()
+end
 
-print("✅ INVINCIBLE PRIVATE KILLING Kill Counter Loaded!")
-print("Smaller version placed under top UI. Drag if needed.")
+game.Players.PlayerAdded:Connect(updatePlayers)
+game.Players.PlayerRemoving:Connect(updatePlayers)
+updatePlayers()
+
+print("✅ INVINCIBLE PRIVATE KILLING Counter Loaded!")
+print("Raised higher under top UI")
