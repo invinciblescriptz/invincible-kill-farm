@@ -1,68 +1,28 @@
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library/main/Library"))()
-local window = library:AddWindow("Invincible Kill Farm", {
-    main_color = Color3.fromRGB(0, 0, 0),
-    min_size = Vector2.new(200, 200),
-    can_resize = false,
-    background_transparency = 1,
-})
+-- Invincible Kill Farm (UI Removed)
+if getgenv().AutoKillLoaded then return end
+getgenv().AutoKillLoaded = true
 
--- Main Tab
-local mainTabData, mainTab = window:AddTab("Main")
-
--- Settings
+-- ================== SETTINGS ==================
 local AutoFarmEnabled = true
 local AutoServerHopEnabled = true
-local ServerHopInterval = 30
+local ServerHopInterval = 60
 local KillOnlyWeakerEnabled = true
 local AutoTPKingGymEnabled = true
 local AutoLockPositionEnabled = true
 local AutoSetNightTimeEnabled = true
 local AutoBigHitboxEnabled = true
+-- =============================================
 
--- UI Toggles & Slider
-mainTabData:AddSwitch("Auto Farm", function(state) AutoFarmEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto Server Hop", function(state) AutoServerHopEnabled = state end):Set(true)
-mainTabData:AddSlider("Hop Interval (s)", function(value) ServerHopInterval = value end, {min = 5, max = 120}):Set(30)
-mainTabData:AddSwitch("Kill Only Weaker", function(state) KillOnlyWeakerEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto TP Muscle King Gym", function(state) AutoTPKingGymEnabled = state end):Set(true)
-mainTabData:AddSwitch("Auto Lock Position", function(state)
-    AutoLockPositionEnabled = state
-    if state then setupPositionLock() else clearPositionLock() end
-end):Set(true)
-mainTabData:AddSwitch("Auto Set Night Time", function(state)
-    AutoSetNightTimeEnabled = state
-    if state then setNightTime() end
-end):Set(true)
-mainTabData:AddSwitch("Auto Big Hitbox", function(state)
-    AutoBigHitboxEnabled = state
-    if not state then resetHitbox() end
-end):Set(true)
-
--- Gym location
-local gymCFrame = CFrame.new(-8913.48535, 12.495101, -6018.11084, 0.366716683, 2.72033152e-08, 0.930332661, 6.42274287e-08, 1, -5.45574572e-08, -0.930332661, 7.97600066e-08, 0.366716683)
-
-mainTabData:AddButton("TP Muscle King Gym (Manual)", function()
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.CFrame = gymCFrame end
-end)
-
-mainTabData:AddButton("Set Night Time (Manual)", setNightTime)
-
--- Credits
-local creditsTab = window:AddTab("Credits")
-creditsTab:AddLabel("Made by invincible").TextSize = 8
+local gymCFrame = CFrame.new(-8588.99121, 42.783989, -6045.90625, 0.324573487, -0.613152802, -0.720205307, 0.0299518425, -0.7543841, 0.655749559, -0.945386112, -0.234410405, -0.226488039)
 
 -- Services
-local Players        = game:GetService("Players")
-local RunService     = game:GetService("RunService")
-local VirtualUser    = game:GetService("VirtualUser")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
-local HttpService    = game:GetService("HttpService")
-local Lighting       = game:GetService("Lighting")
-local LocalPlayer    = Players.LocalPlayer
-
-if getgenv().AutoKillLoaded then return end
-getgenv().AutoKillLoaded = true
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local LocalPlayer = Players.LocalPlayer
 
 local LastServerHop = os.clock()
 
@@ -79,11 +39,8 @@ local function setupPositionLock()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     pcall(function() hrp:SetNetworkOwner(LocalPlayer) end)
-
     positionLockAttachment = Instance.new("Attachment", hrp)
-
     positionLockAlignPos = Instance.new("AlignPosition")
     positionLockAlignPos.Attachment0 = positionLockAttachment
     positionLockAlignPos.Position = gymCFrame.Position
@@ -151,7 +108,7 @@ local function ShouldKillPlayer(target)
     return math.ceil(theirHP / myDmg) <= 5
 end
 
--- Character vars
+-- Character
 local Character, Humanoid, Hand, Punch, HRP
 local LastAttack = 0
 
@@ -199,19 +156,16 @@ end)
 local function ServerHop()
     local placeId = game.PlaceId
     local myJobId = game.JobId
-
     for attempt = 1, 6 do
         local success, response = pcall(function()
             return HttpService:JSONDecode(game:HttpGet(
                 "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"
             ))
         end)
-
         if not success or not response or not response.data then
             task.wait(2 + attempt)
             continue
         end
-
         local candidates = {}
         for _, srv in response.data do
             if srv.id == myJobId then continue end
@@ -222,18 +176,14 @@ local function ServerHop()
                 table.insert(candidates, srv)
             end
         end
-
         if #candidates == 0 then
             task.wait(3 + attempt * 1.5)
             continue
         end
-
         local target = candidates[math.random(1, #candidates)]
-
         pcall(function()
             TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
         end)
-
         task.wait(5 + attempt * 2)
     end
 end
@@ -287,7 +237,6 @@ RunService.Heartbeat:Connect(function()
 
         local char = other.Character
         if not char then continue end
-
         local hum = char:FindFirstChildOfClass("Humanoid")
         local head = char:FindFirstChild("Head")
         local root = char:FindFirstChild("HumanoidRootPart")
@@ -303,108 +252,99 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("Invincible Kill Farm Loaded!")
+print("Invincible Kill Farm Loaded! (UI Removed)")
 
--- ===================================================================
--- Simple Hand-Made Kill Counter GUI (replaced the old one)
--- ===================================================================
+-- // INVINCIBLE PRIVATE KILLING - Auto Kill Counter + Players
+-- Paste as LocalScript in StarterPlayerScripts
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local player = game.Players.LocalPlayer
+local kills = 455036
 
--- Create ScreenGui
-local sg = Instance.new("ScreenGui")
-sg.Name = "KillCounter"
-sg.ResetOnSpawn = false
-sg.Parent = playerGui
+-- Create GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InvincibleKillCounter"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Main Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 130)
-frame.Position = UDim2.new(1, -250, 0, 50)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-frame.BorderSizePixel = 0
-frame.Parent = sg
+frame.Size = UDim2.new(0, 260, 0, 82)
+frame.Position = UDim2.new(0.5, -130, 0, 45)  -- Raised higher
+frame.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
+frame.BorderSizePixel = 3
+frame.BorderColor3 = Color3.fromRGB(45, 45, 45)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
 
+-- Corner rounding
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
+corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = frame
 
--- Title
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35)
+title.Size = UDim2.new(1, 0, 0, 26)
 title.BackgroundTransparency = 1
-title.Text = "Muscle Legends Kill Counter"
-title.TextColor3 = Color3.fromRGB(255, 220, 60)
-title.TextSize = 16
-title.Font = Enum.Font.GothamBold
+title.Text = "INVINCIBLE PRIVATE KILLING"
+title.TextColor3 = Color3.fromRGB(255, 55, 0)
+title.TextScaled = true
+title.Font = Enum.Font.Code
+title.TextStrokeTransparency = 0.6
 title.Parent = frame
 
--- Kill count
-local killsText = Instance.new("TextLabel")
-killsText.Size = UDim2.new(1, -20, 0, 55)
-killsText.Position = UDim2.new(0, 10, 0, 40)
-killsText.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-killsText.Text = "Kills: 0"
-killsText.TextColor3 = Color3.fromRGB(255, 255, 255)
-killsText.TextSize = 28
-killsText.Font = Enum.Font.GothamSemibold
-killsText.Parent = frame
+local killsLabel = Instance.new("TextLabel")
+killsLabel.Size = UDim2.new(1, 0, 0, 26)
+killsLabel.Position = UDim2.new(0, 0, 0, 28)
+killsLabel.BackgroundTransparency = 1
+killsLabel.Text = "Kills: " .. kills
+killsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+killsLabel.TextScaled = true
+killsLabel.Font = Enum.Font.Code
+killsLabel.TextStrokeTransparency = 0.7
+killsLabel.Parent = frame
 
-local killCorner = Instance.new("UICorner")
-killCorner.CornerRadius = UDim.new(0, 8)
-killCorner.Parent = killsText
+local playersLabel = Instance.new("TextLabel")
+playersLabel.Size = UDim2.new(1, 0, 0, 22)
+playersLabel.Position = UDim2.new(0, 0, 0, 55)
+playersLabel.BackgroundTransparency = 1
+playersLabel.Text = "Players: " .. #game.Players:GetPlayers()
+playersLabel.TextColor3 = Color3.fromRGB(180, 255, 180)
+playersLabel.TextScaled = true
+playersLabel.Font = Enum.Font.Code
+playersLabel.TextStrokeTransparency = 0.7
+playersLabel.Parent = frame
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 8)
-btnCorner.Parent = resetBtn
-
--- Make it draggable
-local dragging = false
-local dragStart
-local startPos
-
-title.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = frame.Position
-	end
-end)
-
-title.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
-end)
-
--- Actual kill tracking from leaderstats
-local leaderstats = player:WaitForChild("leaderstats")
-local killsValue = leaderstats:WaitForChild("Kills")
-
-local kills = 0
-
-local function update()
-	killsText.Text = "Kills: " .. killsValue.Value
+-- Update Kills from leaderstats
+local function updateKills()
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if leaderstats then
+        local killsStat = leaderstats:FindFirstChild("Kills") or leaderstats:FindFirstChild("kills")
+        if killsStat then
+            kills = killsStat.Value
+            killsLabel.Text = "Kills: " .. kills
+        end
+    end
 end
 
-killsValue.Changed:Connect(update)
-update()  -- initial update
+player:WaitForChild("leaderstats", 15)
+updateKills()
 
--- Reset button (resets only the displayed number, not actual leaderstats)
-resetBtn.MouseButton1Click:Connect(function()
-	killsText.Text = "Kills: 0"
-	
-	resetBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-	task.wait(0.1)
-	resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-end)
+if player:FindFirstChild("leaderstats") then
+    local leaderstats = player.leaderstats
+    for _, stat in pairs(leaderstats:GetChildren()) do
+        if stat.Name:lower() == "kills" then
+            stat.Changed:Connect(updateKills)
+        end
+    end
+end
 
-print("Simple Kill Counter loaded - drag by the title")
+-- Update Players Count
+local function updatePlayers()
+    playersLabel.Text = "Players: " .. #game.Players:GetPlayers()
+end
+
+game.Players.PlayerAdded:Connect(updatePlayers)
+game.Players.PlayerRemoving:Connect(updatePlayers)
+updatePlayers()
+
+print("✅ INVINCIBLE PRIVATE KILLING Counter Loaded!")
+print("Raised higher under top UI")
