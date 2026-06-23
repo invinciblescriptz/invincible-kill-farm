@@ -186,8 +186,8 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
--- Muscle Legends Beast Kill Counter (Higher UI + Stronger Detection)
--- Muscle Legends Beast Kill Counter (Persistent TOTAL Kills)
+
+-- Muscle Legends Beast Kill Counter (Lifetime Total Kills)
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -198,7 +198,7 @@ screenGui.Parent = playerGui
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 220, 0, 90)
-mainFrame.Position = UDim2.new(0.5, -110, 0.02, 0)  -- High under gem/strength UI
+mainFrame.Position = UDim2.new(0.5, -110, 0.02, 0)  -- High under gem/strength
 mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainFrame.BackgroundTransparency = 0.1
 mainFrame.BorderSizePixel = 0
@@ -249,15 +249,15 @@ game:GetService("RunService").RenderStepped:Connect(function()
 	end
 end)
 
--- Persistent Total Kills
-local saveFile = "BeastTotalKills_MuscleLegends.dat"
+-- === LIFETIME TOTAL KILLS (Saved on PC) ===
+local saveFile = "BeastLifetimeKills_MuscleLegends.dat"
 
 local function loadKills()
 	if isfile(saveFile) then
-		local success, data = pcall(function()
+		local success, num = pcall(function()
 			return tonumber(readfile(saveFile)) or 0
 		end)
-		if success then return data end
+		return success and num or 0
 	end
 	return 0
 end
@@ -271,35 +271,38 @@ end
 local kills = loadKills()
 
 local function updateDisplay()
-	killsLabel.Text = "Kills: " .. kills
+	killsLabel.Text = "Kills: " .. tostring(kills)
 end
 
--- Kill Detection
+-- Strong Kill Detection
 local function tryDetectKill(humanoid)
 	local char = humanoid.Parent
 	if not char or char == player.Character then return end
 	
-	wait(0.1)
+	wait(0.08)
 	
-	-- Tag check
-	local tags = {"creator", "Killer", "LastAttacker", "Attacker", "DamageSource", "Owner", "KillerPlayer"}
+	-- Tag detection
+	local tags = {"creator", "Killer", "LastAttacker", "Attacker", "DamageSource", "Owner", "KillerPlayer", "WhoKilled"}
 	for _, tagName in ipairs(tags) do
 		local tag = humanoid:FindFirstChild(tagName) or char:FindFirstChild(tagName)
-		if tag and (tag.Value == player or tag.Value == player.Character or tag.Value == player.Name) then
-			kills += 1
-			updateDisplay()
-			saveKills(kills)
-			return
+		if tag then
+			local val = tag.Value
+			if val == player or val == player.Character or val == player.Name or (val and val.Name == player.Name) then
+				kills += 1
+				updateDisplay()
+				saveKills(kills)
+				return
+			end
 		end
 	end
 	
-	-- Aggressive fallback (counts most deaths you cause in Muscle Legends)
+	-- Aggressive fallback - counts nearly every kill you make in Muscle Legends
 	kills += 1
 	updateDisplay()
 	saveKills(kills)
 end
 
--- Monitor
+-- Setup
 workspace.DescendantAdded:Connect(function(desc)
 	if desc:IsA("Humanoid") then
 		desc.Died:Connect(function()
@@ -308,7 +311,7 @@ workspace.DescendantAdded:Connect(function(desc)
 	end
 end)
 
--- Scan existing
+-- Scan existing Humanoids
 for _, v in ipairs(workspace:GetDescendants()) do
 	if v:IsA("Humanoid") then
 		v.Died:Connect(function()
@@ -318,5 +321,5 @@ for _, v in ipairs(workspace:GetDescendants()) do
 end
 
 updateDisplay()
-print("✅ Beast Kill Counter loaded!")
-print("Total kills are saved persistently across servers.")
+print("✅ Beast Kill Counter loaded - Lifetime Total Kills Enabled!")
+print("Your total kills are saved forever on your PC.")
