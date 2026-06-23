@@ -1,1 +1,289 @@
-do local Players=game:GetService("Players");local RunService=game:GetService("RunService");local VirtualUser=game:GetService("VirtualUser");local TeleportService=game:GetService("TeleportService");local HttpService=game:GetService("HttpService");local Lighting=game:GetService("Lighting");local TweenService=game:GetService("TweenService");local UserInputService=game:GetService("UserInputService");local LocalPlayer=Players.LocalPlayer;if getgenv().GoodKarmaFarmLoaded then return;end getgenv().GoodKarmaFarmLoaded=true;local LastServerHop=os.clock();local AutoFarmEnabled=true;local AutoGoodKarmaEnabled=true;local AutoServerHopEnabled=true;local ServerHopInterval=30;local AutoTPKingGymEnabled=true;local AutoLockPositionEnabled=true;local AutoSetSunsetEnabled=true;local AutoBigHitboxEnabled=true;local gymCFrame=CFrame.new(4109.91309,1022.23541, -3802.15332, -1,0,0,0,1,0,0,0, -1);local gymPos=gymCFrame.Position;local positionLockAlignPos,positionLockAttachment;local function clearPositionLock() if positionLockAlignPos then positionLockAlignPos:Destroy();positionLockAlignPos=nil;end if positionLockAttachment then positionLockAttachment:Destroy();positionLockAttachment=nil;end end local function setupPositionLock() clearPositionLock();local char=LocalPlayer.Character;local hrp=char and char:FindFirstChild("HumanoidRootPart") ;if  not hrp then return;end pcall(function() hrp:SetNetworkOwner(LocalPlayer);end);positionLockAttachment=Instance.new("Attachment",hrp);positionLockAlignPos=Instance.new("AlignPosition");positionLockAlignPos.Attachment0=positionLockAttachment;positionLockAlignPos.Position=gymPos;positionLockAlignPos.MaxForce=10000000;positionLockAlignPos.MaxVelocity=math.huge;positionLockAlignPos.Responsiveness=200;positionLockAlignPos.RigidityEnabled=true;positionLockAlignPos.Parent=hrp;end local function setSunsetTime() Lighting.ClockTime=18.5;Lighting.Brightness=1.2;Lighting.Ambient=Color3.fromRGB(100,70,50);Lighting.OutdoorAmbient=Color3.fromRGB(90,60,40);end local function setBigHitbox() local char=LocalPlayer.Character;local hrp=char and char:FindFirstChild("HumanoidRootPart") ;if hrp then hrp.Size=Vector3.new(25,25,25);end end local function resetHitbox() local char=LocalPlayer.Character;local hrp=char and char:FindFirstChild("HumanoidRootPart") ;if hrp then hrp.Size=Vector3.new(2,2,1);end end local Character,Humanoid,Punch,HRP;local LastAttack=0;local function UpdateAll() Character=LocalPlayer.Character;if  not Character then return;end Humanoid=Character:FindFirstChildOfClass("Humanoid");Punch=Character:FindFirstChild("Punch");HRP=Character:FindFirstChild("HumanoidRootPart");end LocalPlayer.CharacterAdded:Connect(function() task.wait(2);UpdateAll();if (AutoTPKingGymEnabled and HRP) then HRP.CFrame=gymCFrame;task.wait(0.5);end if AutoLockPositionEnabled then task.wait(0.5);setupPositionLock();end if AutoSetSunsetEnabled then task.wait(0.3);setSunsetTime();end if AutoBigHitboxEnabled then task.spawn(function() task.wait(0.8);setBigHitbox();end);end end);UpdateAll();LocalPlayer.Idled:Connect(function() VirtualUser:CaptureController();VirtualUser:ClickButton2(Vector2.new());end);local function ServerHop() local placeId=game.PlaceId;local myJobId=game.JobId;for attempt=1,6 do local success,response=pcall(function() return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"   .. placeId   .. "/servers/Public?sortOrder=Desc&limit=100" ));end);if ( not success or  not response or  not response.data) then task.wait(2 + attempt );continue;end local candidates={};for _,srv in response.data do if (srv.id==myJobId) then continue;end if (srv.playing>=srv.maxPlayers) then continue;end if (srv.playing<8) then continue;end local fill=srv.playing/srv.maxPlayers ;if ((fill>0.25) and (fill<0.9)) then table.insert(candidates,srv);end end if ( #candidates==0) then task.wait(3 + (attempt * 1.5) );continue;end local target=candidates[math.random(1, #candidates)];pcall(function() TeleportService:TeleportToPlaceInstance(placeId,target.id,LocalPlayer);end);task.wait(5 + (attempt * 2) );end warn("Server hop exhausted attempts");end local goodKarma=LocalPlayer:WaitForChild("goodKarma");local screenGui=Instance.new("ScreenGui");screenGui.Name="MuscleLegendsGoodKarmaGUI";screenGui.ResetOnSpawn=false;screenGui.Parent=LocalPlayer:WaitForChild("PlayerGui");local mainFrame=Instance.new("Frame");mainFrame.Name="MainFrame";mainFrame.Size=UDim2.new(0,320,0,160);mainFrame.Position=UDim2.new(0.5, -160,0.5, -80);mainFrame.BackgroundColor3=Color3.fromRGB(20,20,20);mainFrame.BorderSizePixel=0;mainFrame.Parent=screenGui;local uiCorner=Instance.new("UICorner");uiCorner.CornerRadius=UDim.new(0,12);uiCorner.Parent=mainFrame;local uiStroke=Instance.new("UIStroke");uiStroke.Color=Color3.fromRGB(0,170,255);uiStroke.Thickness=2;uiStroke.Parent=mainFrame;local titleBar=Instance.new("Frame");titleBar.Name="TitleBar";titleBar.Size=UDim2.new(1,0,0,40);titleBar.BackgroundColor3=Color3.fromRGB(0,120,200);titleBar.BorderSizePixel=0;titleBar.Parent=mainFrame;local titleCorner=Instance.new("UICorner");titleCorner.CornerRadius=UDim.new(0,12);titleCorner.Parent=titleBar;local titleLabel=Instance.new("TextLabel");titleLabel.Size=UDim2.new(1, -40,1,0);titleLabel.BackgroundTransparency=1;titleLabel.Text="💪 Muscle Legends - Good Karma";titleLabel.TextColor3=Color3.new(1,1,1);titleLabel.TextScaled=true;titleLabel.Font=Enum.Font.GothamBold;titleLabel.Parent=titleBar;local closeButton=Instance.new("TextButton");closeButton.Size=UDim2.new(0,30,0,30);closeButton.Position=UDim2.new(1, -35,0,5);closeButton.BackgroundTransparency=1;closeButton.Text="✕";closeButton.TextColor3=Color3.new(1,0,0);closeButton.TextScaled=true;closeButton.Font=Enum.Font.GothamBold;closeButton.Parent=titleBar;closeButton.MouseButton1Click:Connect(function() screenGui:Destroy();end);local karmaLabel=Instance.new("TextLabel");karmaLabel.Name="KarmaLabel";karmaLabel.Size=UDim2.new(1, -20,0,80);karmaLabel.Position=UDim2.new(0,10,0,55);karmaLabel.BackgroundTransparency=1;karmaLabel.Text="Good Karma: 0";karmaLabel.TextColor3=Color3.new(1,1,1);karmaLabel.TextScaled=true;karmaLabel.Font=Enum.Font.GothamBold;karmaLabel.Parent=mainFrame;local dragging=false;local dragInput=nil;local dragStart=nil;local startPos=nil;local function updateInput(input) local delta=input.Position-dragStart ;mainFrame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset + delta.X ,startPos.Y.Scale,startPos.Y.Offset + delta.Y );end titleBar.InputBegan:Connect(function(input) if ((input.UserInputType==Enum.UserInputType.MouseButton1) or (input.UserInputType==Enum.UserInputType.Touch)) then dragging=true;dragStart=input.Position;startPos=mainFrame.Position;input.Changed:Connect(function() if (input.UserInputState==Enum.UserInputState.End) then dragging=false;end end);end end);titleBar.InputChanged:Connect(function(input) if ((input.UserInputType==Enum.UserInputType.MouseMovement) or (input.UserInputType==Enum.UserInputType.Touch)) then dragInput=input;end end);UserInputService.InputChanged:Connect(function(input) if (dragging and (input==dragInput)) then updateInput(input);end end);local function updateKarma() local amount=goodKarma.Value;karmaLabel.Text="Good Karma: "   .. tostring(amount) ;karmaLabel.TextColor3=Color3.fromRGB(0,255,100);TweenService:Create(karmaLabel,TweenInfo.new(0.4),{TextColor3=Color3.new(1,1,1)}):Play();end goodKarma.Changed:Connect(updateKarma);updateKarma();task.spawn(function() while screenGui.Parent do task.wait(1);if goodKarma then updateKarma();end end end);RunService.Heartbeat:Connect(function() if (AutoServerHopEnabled and ((os.clock() -LastServerHop)>=ServerHopInterval)) then LastServerHop=os.clock();task.spawn(ServerHop);end if (AutoSetSunsetEnabled and ((math.floor(os.clock())%5)==0)) then setSunsetTime();end if (AutoBigHitboxEnabled and ((math.floor(os.clock() * 10 )%3)==0)) then setBigHitbox();end if (AutoLockPositionEnabled and HRP) then if positionLockAlignPos then positionLockAlignPos.Position=gymPos;end if ((math.floor(os.clock() * 20 )%3)==0) then HRP.CFrame=CFrame.new(gymPos) * HRP.CFrame.Rotation ;end end UpdateAll();if ( not Character or  not Humanoid or (Humanoid.Health<=0)) then return;end if  not Punch then local tool=LocalPlayer.Backpack:FindFirstChild("Punch");if tool then Humanoid:EquipTool(tool);end return;end if (AutoFarmEnabled and ((os.clock() -LastAttack)>=0.07)) then LastAttack=os.clock();local attackTime=Punch:FindFirstChild("attackTime");if attackTime then attackTime.Value=0;end Punch:Activate();end if AutoGoodKarmaEnabled then for _,target in ipairs(Players:GetPlayers()) do if (target==LocalPlayer) then continue;end local evilKarma=target:FindFirstChild("evilKarma");local goodKarmaTarget=target:FindFirstChild("goodKarma");if  not (evilKarma and goodKarmaTarget and evilKarma:IsA("IntValue") and goodKarmaTarget:IsA("IntValue")) then continue;end if (evilKarma.Value<=goodKarmaTarget.Value) then continue;end local tChar=target.Character;if  not tChar then continue;end local tHRP=tChar:FindFirstChild("HumanoidRootPart");local tHead=tChar:FindFirstChild("Head");local tHum=tChar:FindFirstChildOfClass("Humanoid");if (tHum and (tHum.Health>0) and (tHRP or tHead)) then local hand=Character:FindFirstChild("RightHand") or Character:FindFirstChild("LeftHand") or Character:FindFirstChild("Left Arm") ;if hand then if tHRP then firetouchinterest(hand,tHRP,0);task.wait();firetouchinterest(hand,tHRP,1);end if tHead then firetouchinterest(hand,tHead,0);task.wait();firetouchinterest(hand,tHead,1);end end end end end end);print("✅ || gud karma killing || Fully Loaded with Good Karma GUI!");print("→ Draggable Good Karma Counter Active");print("→ Evil Only Kills + Position Lock + Big Hitbox + Sunset Mode"); end
+-- // INVINCIBLE PRIVATE KILLING - Improved + Remove Punch Anim
+-- Paste as LocalScript in StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local kills = 0
+
+-- Settings
+local autoGoodKarma = true
+local friendWhitelistActive = true
+local autoEquipPunch = true
+local removePunchAnim = true
+
+local playerWhitelist = {} -- UserId based
+
+-- ====================== GUI ======================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InvincibleKillCounter"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 290, 0, 180)
+frame.Position = UDim2.new(0.5, -145, 0, 45)
+frame.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
+frame.BorderSizePixel = 3
+frame.BorderColor3 = Color3.fromRGB(45, 45, 45)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 28)
+title.BackgroundTransparency = 1
+title.Text = "INVINCIBLE PRIVATE KILLING"
+title.TextColor3 = Color3.fromRGB(255, 55, 0)
+title.TextScaled = true
+title.Font = Enum.Font.Code
+title.TextStrokeTransparency = 0.5
+title.Parent = frame
+
+local killsLabel = Instance.new("TextLabel")
+killsLabel.Size = UDim2.new(1, 0, 0, 26)
+killsLabel.Position = UDim2.new(0, 0, 0, 30)
+killsLabel.BackgroundTransparency = 1
+killsLabel.Text = "Kills: " .. kills
+killsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+killsLabel.TextScaled = true
+killsLabel.Font = Enum.Font.Code
+killsLabel.TextStrokeTransparency = 0.6
+killsLabel.Parent = frame
+
+local playersLabel = Instance.new("TextLabel")
+playersLabel.Size = UDim2.new(1, 0, 0, 24)
+playersLabel.Position = UDim2.new(0, 0, 0, 57)
+playersLabel.BackgroundTransparency = 1
+playersLabel.Text = "Players: " .. #Players:GetPlayers()
+playersLabel.TextColor3 = Color3.fromRGB(180, 255, 180)
+playersLabel.TextScaled = true
+playersLabel.Font = Enum.Font.Code
+playersLabel.TextStrokeTransparency = 0.6
+playersLabel.Parent = frame
+
+-- Status Labels
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 60)
+statusLabel.Position = UDim2.new(0, 0, 0, 82)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = ""
+statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+statusLabel.TextScaled = true
+statusLabel.Font = Enum.Font.Code
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.TextYAlignment = Enum.TextYAlignment.Top
+statusLabel.Parent = frame
+
+local function updateStatus()
+    statusLabel.Text = string.format(
+        "Good Karma: %s\nWhitelist: %s\nAuto Punch: %s\nNo Punch Anim: %s",
+        autoGoodKarma and "ON" or "OFF",
+        friendWhitelistActive and "ON" or "OFF",
+        autoEquipPunch and "ON" or "OFF",
+        removePunchAnim and "ON" or "OFF"
+    )
+end
+updateStatus()
+
+-- ====================== AUTO WHITELIST FRIENDS ======================
+local function updateFriendWhitelist()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and LocalPlayer:IsFriendsWith(plr.UserId) then
+            playerWhitelist[plr.UserId] = true
+        end
+    end
+end
+
+updateFriendWhitelist()
+Players.PlayerAdded:Connect(function(plr)
+    if friendWhitelistActive and plr ~= LocalPlayer and LocalPlayer:IsFriendsWith(plr.UserId) then
+        playerWhitelist[plr.UserId] = true
+    end
+end)
+
+-- ====================== REMOVE PUNCH ANIMATION ======================
+local function setupAnimationBlocking()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("Humanoid") then return end
+    
+    local humanoid = char.Humanoid
+    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+        if track.Animation then
+            local animId = track.Animation.AnimationId
+            local animName = track.Name:lower()
+            if animId == "rbxassetid://3638729053" or
+               animId == "rbxassetid://3638767427" or
+               animName:match("punch") or
+               animName:match("attack") or
+               animName:match("right") then
+                track:Stop()
+            end
+        end
+    end
+
+    if not _G.AnimBlockConnection then
+        _G.AnimBlockConnection = humanoid.AnimationPlayed:Connect(function(track)
+            if track.Animation then
+                local animId = track.Animation.AnimationId
+                local animName = track.Name:lower()
+                if animId == "rbxassetid://3638729053" or
+                   animId == "rbxassetid://3638767427" or
+                   animName:match("punch") or
+                   animName:match("attack") or
+                   animName:match("right") then
+                    task.defer(track.Stop, track)
+                end
+            end
+        end)
+    end
+end
+
+local function overrideToolActivation()
+    local function processTool(tool)
+        if not tool or not tool:IsA("Tool") then return end
+        if tool.Name == "Punch" or tool.Name:match("Attack") or tool.Name:match("Right") then
+            if not tool:GetAttribute("ActivatedOverride") then
+                tool:SetAttribute("ActivatedOverride", true)
+                
+                local conn = tool.Activated:Connect(function()
+                    task.wait(0.03)
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("Humanoid") then
+                        for _, track in pairs(char.Humanoid:GetPlayingAnimationTracks()) do
+                            if track.Animation then
+                                local animId = track.Animation.AnimationId
+                                local animName = track.Name:lower()
+                                if animId == "rbxassetid://3638729053" or
+                                   animId == "rbxassetid://3638767427" or
+                                   animName:match("punch") or
+                                   animName:match("attack") or
+                                   animName:match("right") then
+                                    track:Stop()
+                                end
+                            end
+                        end
+                    end
+                end)
+                
+                if not _G.ToolConnections then _G.ToolConnections = {} end
+                _G.ToolConnections[tool] = conn
+            end
+        end
+    end
+
+    -- Process existing tools
+    for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+        processTool(tool)
+    end
+    local char = LocalPlayer.Character
+    if char then
+        for _, tool in pairs(char:GetChildren()) do
+            processTool(tool)
+        end
+    end
+
+    -- Connections
+    if not _G.BackpackAddedConnection then
+        _G.BackpackAddedConnection = LocalPlayer.Backpack.ChildAdded:Connect(function(child)
+            task.wait(0.1)
+            processTool(child)
+        end)
+    end
+end
+
+-- ====================== AUTO EQUIP PUNCH ======================
+task.spawn(function()
+    while autoEquipPunch do
+        local char = LocalPlayer.Character
+        if char then
+            local punch = LocalPlayer.Backpack:FindFirstChild("Punch")
+            if punch then
+                punch.Parent = char
+            end
+        end
+        task.wait(0.2)
+    end
+end)
+
+-- ====================== AUTO GOOD KARMA ======================
+task.spawn(function()
+    while autoGoodKarma do
+        local char = LocalPlayer.Character
+        local rightHand = char and char:FindFirstChild("RightHand")
+        local leftHand = char and char:FindFirstChild("LeftHand")
+        
+        if char and rightHand and leftHand then
+            for _, target in ipairs(Players:GetPlayers()) do
+                if target == LocalPlayer then continue end
+                if friendWhitelistActive and playerWhitelist[target.UserId] then continue end
+                
+                local evilKarma = target:FindFirstChild("evilKarma")
+                local goodKarma = target:FindFirstChild("goodKarma")
+                
+                if evilKarma and goodKarma and evilKarma:IsA("IntValue") and goodKarma:IsA("IntValue") 
+                   and evilKarma.Value > goodKarma.Value then
+                    
+                    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        firetouchinterest(rightHand, root, 1)
+                        firetouchinterest(leftHand, root, 1)
+                        firetouchinterest(rightHand, root, 0)
+                        firetouchinterest(leftHand, root, 0)
+                    end
+                end
+            end
+        end
+        task.wait(0.08) -- Balanced speed
+    end
+end)
+
+-- ====================== INIT ANIMATION REMOVAL ======================
+if removePunchAnim then
+    LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(1)
+        setupAnimationBlocking()
+        overrideToolActivation()
+    end)
+    
+    if LocalPlayer.Character then
+        setupAnimationBlocking()
+        overrideToolActivation()
+    end
+end
+
+-- ====================== KILLS & PLAYERS ======================
+local function updateKills()
+    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+    if leaderstats then
+        local killsStat = leaderstats:FindFirstChild("Kills") or leaderstats:FindFirstChild("kills")
+        if killsStat then
+            kills = killsStat.Value
+            killsLabel.Text = "Kills: " .. kills
+        end
+    end
+end
+
+LocalPlayer:WaitForChild("leaderstats", 10)
+updateKills()
+
+if LocalPlayer:FindFirstChild("leaderstats") then
+    for _, stat in pairs(LocalPlayer.leaderstats:GetChildren()) do
+        if stat.Name:lower() == "kills" then
+            stat.Changed:Connect(updateKills)
+        end
+    end
+end
+
+local function updatePlayers()
+    playersLabel.Text = "Players: " .. #Players:GetPlayers()
+end
+Players.PlayerAdded:Connect(updatePlayers)
+Players.PlayerRemoving:Connect(updatePlayers)
+updatePlayers()
+
+print("✅ INVINCIBLE PRIVATE KILLING Loaded Successfully!")
+print("All features active: Auto Good Karma | Friend Whitelist | Auto Punch | No Punch Animation")
