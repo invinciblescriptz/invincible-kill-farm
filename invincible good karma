@@ -1,27 +1,25 @@
--- // INVINCIBLE PRIVATE KILLING - Improved + Remove Punch Anim
--- Paste as LocalScript in StarterPlayerScripts
-
+-- INVINCIBLE PRIVATE KILLING - Improved + Fast Auto Punch
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+
 local kills = 0
 
 -- Settings
 local autoGoodKarma = true
 local friendWhitelistActive = true
-local autoEquipPunch = true
+local autoFastPunch = true     -- New Fast Punch (replaces old autoEquipPunch)
 local removePunchAnim = true
 
-local playerWhitelist = {} -- UserId based
+local playerWhitelist = {}
 
 -- ====================== GUI ======================
-
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "InvincibleKillCounter"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 290, 0, 180)
+frame.Size = UDim2.new(0, 290, 0, 200) -- Slightly taller
 frame.Position = UDim2.new(0.5, -145, 0, 45)
 frame.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
 frame.BorderSizePixel = 3
@@ -30,9 +28,7 @@ frame.Active = true
 frame.Draggable = true
 frame.Parent = screenGui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = frame
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 28)
@@ -48,7 +44,7 @@ local killsLabel = Instance.new("TextLabel")
 killsLabel.Size = UDim2.new(1, 0, 0, 26)
 killsLabel.Position = UDim2.new(0, 0, 0, 30)
 killsLabel.BackgroundTransparency = 1
-killsLabel.Text = "Kills: " .. kills
+killsLabel.Text = "Kills: 0"
 killsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 killsLabel.TextScaled = true
 killsLabel.Font = Enum.Font.Code
@@ -66,12 +62,10 @@ playersLabel.Font = Enum.Font.Code
 playersLabel.TextStrokeTransparency = 0.6
 playersLabel.Parent = frame
 
--- Status Labels
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 0, 60)
+statusLabel.Size = UDim2.new(1, 0, 0, 80)
 statusLabel.Position = UDim2.new(0, 0, 0, 82)
 statusLabel.BackgroundTransparency = 1
-statusLabel.Text = ""
 statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
 statusLabel.TextScaled = true
 statusLabel.Font = Enum.Font.Code
@@ -81,16 +75,16 @@ statusLabel.Parent = frame
 
 local function updateStatus()
     statusLabel.Text = string.format(
-        "Good Karma: %s\nWhitelist: %s\nAuto Punch: %s\nNo Punch Anim: %s",
+        "Good Karma: %s\nWhitelist: %s\nFast Auto Punch: %s\nNo Punch Anim: %s",
         autoGoodKarma and "ON" or "OFF",
         friendWhitelistActive and "ON" or "OFF",
-        autoEquipPunch and "ON" or "OFF",
+        autoFastPunch and "ON" or "OFF",
         removePunchAnim and "ON" or "OFF"
     )
 end
 updateStatus()
 
--- ====================== AUTO WHITELIST FRIENDS ======================
+-- ====================== FRIEND WHITELIST ======================
 local function updateFriendWhitelist()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and LocalPlayer:IsFriendsWith(plr.UserId) then
@@ -101,162 +95,142 @@ end
 
 updateFriendWhitelist()
 Players.PlayerAdded:Connect(function(plr)
-    if friendWhitelistActive and plr ~= LocalPlayer and LocalPlayer:IsFriendsWith(plr.UserId) then
+    if friendWhitelistActive and LocalPlayer:IsFriendsWith(plr.UserId) then
         playerWhitelist[plr.UserId] = true
     end
 end)
 
--- ====================== REMOVE PUNCH ANIMATION ======================
-local function setupAnimationBlocking()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("Humanoid") then return end
-    
-    local humanoid = char.Humanoid
-    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
-        if track.Animation then
-            local animId = track.Animation.AnimationId
-            local animName = track.Name:lower()
-            if animId == "rbxassetid://3638729053" or
-               animId == "rbxassetid://3638767427" or
-               animName:match("punch") or
-               animName:match("attack") or
-               animName:match("right") then
-                track:Stop()
-            end
-        end
-    end
+-- ====================== FAST AUTO PUNCH ======================
+_G.fastHitActive = autoFastPunch
 
-    if not _G.AnimBlockConnection then
-        _G.AnimBlockConnection = humanoid.AnimationPlayed:Connect(function(track)
-            if track.Animation then
-                local animId = track.Animation.AnimationId
-                local animName = track.Name:lower()
-                if animId == "rbxassetid://3638729053" or
-                   animId == "rbxassetid://3638767427" or
-                   animName:match("punch") or
-                   animName:match("attack") or
-                   animName:match("right") then
-                    task.defer(track.Stop, track)
+local function startFastPunch()
+    -- Equip + attackTime loop
+    task.spawn(function()
+        while _G.fastHitActive do
+            local char = LocalPlayer.Character
+            if char then
+                local punch = LocalPlayer.Backpack:FindFirstChild("Punch")
+                if punch then
+                    punch.Parent = char
+                end
+                
+                local equippedPunch = char:FindFirstChild("Punch")
+                if equippedPunch and equippedPunch:FindFirstChild("attackTime") then
+                    equippedPunch.attackTime.Value = 0
                 end
             end
-        end)
-    end
-end
-
-local function overrideToolActivation()
-    local function processTool(tool)
-        if not tool or not tool:IsA("Tool") then return end
-        if tool.Name == "Punch" or tool.Name:match("Attack") or tool.Name:match("Right") then
-            if not tool:GetAttribute("ActivatedOverride") then
-                tool:SetAttribute("ActivatedOverride", true)
-                
-                local conn = tool.Activated:Connect(function()
-                    task.wait(0.03)
-                    local char = LocalPlayer.Character
-                    if char and char:FindFirstChild("Humanoid") then
-                        for _, track in pairs(char.Humanoid:GetPlayingAnimationTracks()) do
-                            if track.Animation then
-                                local animId = track.Animation.AnimationId
-                                local animName = track.Name:lower()
-                                if animId == "rbxassetid://3638729053" or
-                                   animId == "rbxassetid://3638767427" or
-                                   animName:match("punch") or
-                                   animName:match("attack") or
-                                   animName:match("right") then
-                                    track:Stop()
-                                end
-                            end
-                        end
-                    end
-                end)
-                
-                if not _G.ToolConnections then _G.ToolConnections = {} end
-                _G.ToolConnections[tool] = conn
-            end
+            task.wait(0.08)
         end
-    end
+    end)
 
-    -- Process existing tools
-    for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
-        processTool(tool)
-    end
-    local char = LocalPlayer.Character
-    if char then
-        for _, tool in pairs(char:GetChildren()) do
-            processTool(tool)
-        end
-    end
-
-    -- Connections
-    if not _G.BackpackAddedConnection then
-        _G.BackpackAddedConnection = LocalPlayer.Backpack.ChildAdded:Connect(function(child)
-            task.wait(0.1)
-            processTool(child)
-        end)
-    end
-end
-
--- ====================== AUTO EQUIP PUNCH ======================
-task.spawn(function()
-    while autoEquipPunch do
-        local char = LocalPlayer.Character
-        if char then
-            local punch = LocalPlayer.Backpack:FindFirstChild("Punch")
+    -- Activation spam loop
+    task.spawn(function()
+        while _G.fastHitActive do
+            local char = LocalPlayer.Character
+            local punch = char and char:FindFirstChild("Punch")
             if punch then
-                punch.Parent = char
+                punch:Activate()
             end
+            task.wait(0.1)
         end
-        task.wait(0.2)
+    end)
+end
+
+-- Toggle function (you can call this from Killer UI or manually)
+local function toggleFastPunch(state)
+    _G.fastHitActive = state
+    if state then
+        startFastPunch()
+    else
+        local char = LocalPlayer.Character
+        local punch = char and char:FindFirstChild("Punch")
+        if punch then
+            punch.Parent = LocalPlayer.Backpack
+        end
     end
-end)
+    updateStatus()
+end
+
+-- Start if enabled
+if autoFastPunch then
+    startFastPunch()
+end
+
+-- ====================== ANIMATION REMOVAL ======================
+local function blockPunchAnimations(humanoid)
+    if not humanoid then return end
+    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+        local animId = track.Animation and track.Animation.AnimationId
+        local name = track.Name:lower()
+        if animId == "rbxassetid://3638729053" or 
+           animId == "rbxassetid://3638767427" or
+           name:match("punch") or name:match("attack") or name:match("right") then
+            track:Stop()
+        end
+    end
+end
+
+local function setupAnimationBlocking()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:WaitForChild("Humanoid", 3)
+    if not humanoid then return end
+
+    blockPunchAnimations(humanoid)
+    
+    if not _G.AnimBlockConn then
+        _G.AnimBlockConn = humanoid.AnimationPlayed:Connect(function()
+            task.defer(blockPunchAnimations, humanoid)
+        end)
+    end
+end
 
 -- ====================== AUTO GOOD KARMA ======================
 task.spawn(function()
     while autoGoodKarma do
         local char = LocalPlayer.Character
-        local rightHand = char and char:FindFirstChild("RightHand")
-        local leftHand = char and char:FindFirstChild("LeftHand")
-        
-        if char and rightHand and leftHand then
-            for _, target in ipairs(Players:GetPlayers()) do
-                if target == LocalPlayer then continue end
-                if friendWhitelistActive and playerWhitelist[target.UserId] then continue end
-                
-                local evilKarma = target:FindFirstChild("evilKarma")
-                local goodKarma = target:FindFirstChild("goodKarma")
-                
-                if evilKarma and goodKarma and evilKarma:IsA("IntValue") and goodKarma:IsA("IntValue") 
-                   and evilKarma.Value > goodKarma.Value then
+        if char then
+            local rightHand = char:FindFirstChild("RightHand")
+            local leftHand = char:FindFirstChild("LeftHand")
+            
+            if rightHand and leftHand then
+                for _, target in ipairs(Players:GetPlayers()) do
+                    if target == LocalPlayer or (friendWhitelistActive and playerWhitelist[target.UserId]) then
+                        continue
+                    end
                     
-                    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        firetouchinterest(rightHand, root, 1)
-                        firetouchinterest(leftHand, root, 1)
-                        firetouchinterest(rightHand, root, 0)
-                        firetouchinterest(leftHand, root, 0)
+                    local evil = target:FindFirstChild("evilKarma")
+                    local good = target:FindFirstChild("goodKarma")
+                    
+                    if evil and good and evil:IsA("IntValue") and good:IsA("IntValue") and evil.Value > good.Value then
+                        local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            firetouchinterest(rightHand, root, 0)
+                            firetouchinterest(leftHand, root, 0)
+                            task.wait(0.01)
+                            firetouchinterest(rightHand, root, 1)
+                            firetouchinterest(leftHand, root, 1)
+                        end
                     end
                 end
             end
         end
-        task.wait(0.08) -- Balanced speed
+        task.wait(0.1)
     end
 end)
 
--- ====================== INIT ANIMATION REMOVAL ======================
-if removePunchAnim then
-    LocalPlayer.CharacterAdded:Connect(function()
-        task.wait(1)
-        setupAnimationBlocking()
-        overrideToolActivation()
-    end)
-    
-    if LocalPlayer.Character then
-        setupAnimationBlocking()
-        overrideToolActivation()
-    end
+-- ====================== INIT ======================
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    setupAnimationBlocking()
+end)
+
+if LocalPlayer.Character then
+    task.wait(1)
+    setupAnimationBlocking()
 end
 
--- ====================== KILLS & PLAYERS ======================
+-- ====================== STATS ======================
 local function updateKills()
     local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
     if leaderstats then
@@ -279,12 +253,8 @@ if LocalPlayer:FindFirstChild("leaderstats") then
     end
 end
 
-local function updatePlayers()
-    playersLabel.Text = "Players: " .. #Players:GetPlayers()
-end
-Players.PlayerAdded:Connect(updatePlayers)
-Players.PlayerRemoving:Connect(updatePlayers)
-updatePlayers()
+Players.PlayerAdded:Connect(function() playersLabel.Text = "Players: " .. #Players:GetPlayers() end)
+Players.PlayerRemoving:Connect(function() playersLabel.Text = "Players: " .. #Players:GetPlayers() end)
 
 print("✅ INVINCIBLE PRIVATE KILLING Loaded Successfully!")
-print("All features active: Auto Good Karma | Friend Whitelist | Auto Punch | No Punch Animation")
+print("Fast Auto Punch is now integrated!")
