@@ -189,47 +189,128 @@ end)
 
 print("Invincible Kill Farm Loaded!")
 
--- Place this script in StarterPlayerScripts or a similar location
+-- Muscle Legends Kill Counter GUI
+-- Paste this into a LocalScript (e.g., via executor or in StarterPlayer > StarterPlayerScripts)
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- Create ScreenGui
-local killCounterGui = Instance.new("ScreenGui")
-killCounterGui.Name = "KillCounterGui"
-killCounterGui.Parent = playerGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BeastKillCounter"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
 
--- Create TextLabel
-local killCounterLabel = Instance.new("TextLabel")
-killCounterLabel.Name = "KillCounterLabel"
-killCounterLabel.Size = UDim2.new(0, 150, 0, 50)
-killCounterLabel.Position = UDim2.new(0, 200, 0, 100) -- Adjust position as needed
-killCounterLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-killCounterLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-killCounterLabel.TextScaled = true
-killCounterLabel.Text = "Kills: 0"
-killCounterLabel.Parent = killCounterGui
+-- Main Frame (mimicking the image style)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "KillCounterFrame"
+mainFrame.Size = UDim2.new(0, 220, 0, 90)
+mainFrame.Position = UDim2.new(0.5, -110, 0.85, 0)  -- Below typical top HUD (adjust Y as needed for gem/strength UI)
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainFrame.BorderSizePixel = 0
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.Parent = screenGui
 
--- Initialize kill count
-local killCount = 0
+-- Corner rounding for modern look
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = mainFrame
 
--- Function to update the kill count display
-local function updateKillCount()
-    killCounterLabel.Text = "Kills: " .. tostring(killCount)
-end
+-- Slight shadow/stroke
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Thickness = 2
+uiStroke.Color = Color3.fromRGB(50, 50, 50)
+uiStroke.Parent = mainFrame
 
--- Example: Connect to a remote event or game logic that detects kills
--- Assuming there's a RemoteEvent named "PlayerKilled" in ReplicatedStorage
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local killEvent = replicatedStorage:WaitForChild("PlayerKilled")
+-- "Beast" label (top, like 228 in image)
+local beastLabel = Instance.new("TextLabel")
+beastLabel.Name = "BeastLabel"
+beastLabel.Size = UDim2.new(1, 0, 0.45, 0)
+beastLabel.BackgroundTransparency = 1
+beastLabel.Text = "Beast"
+beastLabel.TextColor3 = Color3.fromRGB(255, 215, 0)  -- Gold/yellow
+beastLabel.TextScaled = true
+beastLabel.Font = Enum.Font.GothamBold
+beastLabel.Parent = mainFrame
 
-killEvent.OnClientEvent:Connect(function()
-    killCount = killCount + 1
-    updateKillCount()
+-- Kills label
+local killsLabel = Instance.new("TextLabel")
+killsLabel.Name = "KillsLabel"
+killsLabel.Size = UDim2.new(1, 0, 0.55, 0)
+killsLabel.Position = UDim2.new(0, 0, 0.45, 0)
+killsLabel.BackgroundTransparency = 1
+killsLabel.Text = "Kills: 0"
+killsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+killsLabel.TextScaled = true
+killsLabel.Font = Enum.Font.GothamSemibold
+killsLabel.Parent = mainFrame
+
+-- Draggable (optional, but useful)
+local dragging = false
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+    end
 end)
 
--- Adjust the position of the GUI to be under gems and strength UI
--- You may need to tweak the Position property based on your game's UI layout
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
 
-print("OG_Beast Kill Counter Loaded!")
+game:GetService("RunService").RenderStepped:Connect(function()
+    if dragging then
+        local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+        mainFrame.Position = UDim2.new(0, mousePos.X - mainFrame.AbsoluteSize.X/2, 0, mousePos.Y - mainFrame.AbsoluteSize.Y/2)
+    end
+end)
+
+-- Kill tracking logic
+local kills = 0
+
+-- Function to update display
+local function updateDisplay()
+    killsLabel.Text = "Kills: " .. tostring(kills)
+end
+
+-- Listen for character deaths (common way to track kills in Roblox)
+local function onCharacterAdded(char)
+    local humanoid = char:WaitForChild("Humanoid")
+    
+    humanoid.Died:Connect(function()
+        -- This fires when YOU die. For kills, we need to detect when others die by your damage
+        -- Alternative: poll or listen to damage events if game exposes them
+    end)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+
+-- Advanced kill detection (tries to hook into common Muscle Legends combat)
+-- Note: Exact implementation depends on game's remote events / modules. This is a starting point.
+local function setupKillDetection()
+    -- Common pattern: Listen for Humanoid.Died on other players in workspace
+    game:GetService("Workspace").DescendantAdded:Connect(function(desc)
+        if desc:IsA("Humanoid") and desc.Parent ~= player.Character then
+            desc.Died:Connect(function()
+                -- Check if you caused the damage (basic heuristic - last attacker)
+                -- In many games, you can track via tags or last damage source
+                local killerTag = desc.Parent:FindFirstChild("LastKiller") or desc:FindFirstChild("creator")
+                if killerTag and killerTag.Value == player then
+                    kills = kills + 1
+                    updateDisplay()
+                end
+            end)
+        end
+    end)
+end
+
+setupKillDetection()
+
+-- Initial display
+updateDisplay()
+
+print("Beast Kill Counter loaded! Position it below the gem/strength UI.")
