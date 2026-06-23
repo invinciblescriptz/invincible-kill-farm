@@ -187,53 +187,44 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Muscle Legends Kill Counter GUI (Updated)
--- Paste this into a LocalScript
-
+-- Muscle Legends Beast Kill Counter (Improved Detection)
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "BeastKillCounter"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Main Frame
 local mainFrame = Instance.new("Frame")
-mainFrame.Name = "KillCounterFrame"
 mainFrame.Size = UDim2.new(0, 220, 0, 90)
-mainFrame.Position = UDim2.new(0.5, -110, 0.12, 0)  -- Positioned under typical top gem/strength UI
+mainFrame.Position = UDim2.new(0.5, -110, 0.12, 0)  -- Under gem/strength UI
 mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-mainFrame.BorderSizePixel = 0
 mainFrame.BackgroundTransparency = 0.1
+mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 
--- Corner rounding
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0, 8)
 uiCorner.Parent = mainFrame
 
--- Stroke
 local uiStroke = Instance.new("UIStroke")
 uiStroke.Thickness = 2
-uiStroke.Color = Color3.fromRGB(50, 50, 50)
+uiStroke.Color = Color3.fromRGB(60, 60, 60)
 uiStroke.Parent = mainFrame
 
--- "Beast" label (now WHITE)
+-- Beast Label (White)
 local beastLabel = Instance.new("TextLabel")
-beastLabel.Name = "BeastLabel"
 beastLabel.Size = UDim2.new(1, 0, 0.45, 0)
 beastLabel.BackgroundTransparency = 1
 beastLabel.Text = "Beast"
-beastLabel.TextColor3 = Color3.fromRGB(255, 255, 255)  -- Changed to white
+beastLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 beastLabel.TextScaled = true
 beastLabel.Font = Enum.Font.GothamBold
 beastLabel.Parent = mainFrame
 
--- Kills label
+-- Kills Label
 local killsLabel = Instance.new("TextLabel")
-killsLabel.Name = "KillsLabel"
 killsLabel.Size = UDim2.new(1, 0, 0.55, 0)
 killsLabel.Position = UDim2.new(0, 0, 0.45, 0)
 killsLabel.BackgroundTransparency = 1
@@ -243,72 +234,83 @@ killsLabel.TextScaled = true
 killsLabel.Font = Enum.Font.GothamSemibold
 killsLabel.Parent = mainFrame
 
--- Make it draggable
+-- Draggable
 local dragging = false
 mainFrame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-	end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
 end)
-
 game:GetService("UserInputService").InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
-
 game:GetService("RunService").RenderStepped:Connect(function()
 	if dragging then
-		local mousePos = game:GetService("UserInputService"):GetMouseLocation()
-		mainFrame.Position = UDim2.new(0, mousePos.X - mainFrame.AbsoluteSize.X/2, 0, mousePos.Y - mainFrame.AbsoluteSize.Y/2)
+		local mouse = game:GetService("UserInputService"):GetMouseLocation()
+		mainFrame.Position = UDim2.new(0, mouse.X - mainFrame.AbsoluteSize.X/2, 0, mouse.Y - mainFrame.AbsoluteSize.Y/2)
 	end
 end)
 
--- Kill counter logic
+-- Kill Counter
 local kills = 0
-
 local function updateDisplay()
-	killsLabel.Text = "Kills: " .. tostring(kills)
+	killsLabel.Text = "Kills: " .. kills
 end
 
--- Basic kill detection (improved for Muscle Legends style games)
-local function setupKillDetection()
-	game:GetService("Workspace").DescendantAdded:Connect(function(desc)
-		if desc:IsA("Humanoid") and desc.Parent ~= player.Character then
-			desc.Died:Connect(function()
-				-- Try to detect if you killed them
-				local lastDamage = desc.Parent:FindFirstChild("LastDamage") or 
-				                   desc:FindFirstChild("creator") or
-				                   desc.Parent:FindFirstChild("Killer")
-				
-				if lastDamage and (lastDamage.Value == player or lastDamage.Value == player.Character) then
-					kills = kills + 1
-					updateDisplay()
-				end
-			end)
+-- === IMPROVED KILL DETECTION ===
+local function checkForKiller(humanoid)
+	local char = humanoid.Parent
+	if not char then return false end
+	
+	-- Common tags used in Roblox games
+	local possibleTags = {"creator", "Killer", "LastAttacker", "LastDamage", "DamageSource", "Owner"}
+	
+	for _, tagName in ipairs(possibleTags) do
+		local tag = humanoid:FindFirstChild(tagName) or char:FindFirstChild(tagName)
+		if tag and tag.Value == player or (tag.Value and tag.Value == player.Character) then
+			return true
+		end
+	end
+	
+	-- Check attributes (newer Roblox method)
+	if humanoid:GetAttribute("Killer") == player.Name or char:GetAttribute("Killer") == player.Name then
+		return true
+	end
+	
+	return false
+end
+
+local function onHumanoidAdded(humanoid)
+	if humanoid.Parent == player.Character then return end  -- Ignore self
+	
+	humanoid.Died:Connect(function()
+		wait(0.1) -- Small delay for tags to be set
+		if checkForKiller(humanoid) then
+			kills = kills + 1
+			updateDisplay()
 		end
 	end)
 end
 
-setupKillDetection()
+-- Monitor all new Humanoids
+game:GetService("Workspace").DescendantAdded:Connect(function(desc)
+	if desc:IsA("Humanoid") then
+		onHumanoidAdded(desc)
+	end
+end)
 
-if player.Character then
-	local humanoid = player.Character:FindFirstChild("Humanoid")
-	if humanoid then
-		-- Optional: reset kills on death
-		humanoid.Died:Connect(function()
-			-- kills = 0  -- Uncomment if you want to reset on death
-		end)
+-- Scan existing Humanoids
+for _, v in ipairs(game:GetService("Workspace"):GetDescendants()) do
+	if v:IsA("Humanoid") then
+		onHumanoidAdded(v)
 	end
 end
 
-player.CharacterAdded:Connect(function(char)
-	local humanoid = char:WaitForChild("Humanoid")
-	humanoid.Died:Connect(function()
-		-- kills = 0  -- Uncomment if desired
+-- Also monitor new characters
+game.Players.PlayerAdded:Connect(function(plr)
+	plr.CharacterAdded:Connect(function(char)
+		local hum = char:WaitForChild("Humanoid", 5)
+		if hum then onHumanoidAdded(hum) end
 	end)
 end)
 
 updateDisplay()
-
-print("✅ Beast Kill Counter loaded! Positioned under gem/strength UI. Drag to fine-tune.")
+print("✅ Beast Kill Counter loaded with improved detection!")
