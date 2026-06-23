@@ -189,121 +189,47 @@ end)
 
 print("Invincible Kill Farm Loaded!")
 
--- =============================================
--- OG_Beast Kill Counter UI
--- =============================================
-local player = LocalPlayer
+-- Place this script in StarterPlayerScripts or a similar location
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "OGBeastStatsGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = playerGui
+-- Create ScreenGui
+local killCounterGui = Instance.new("ScreenGui")
+killCounterGui.Name = "KillCounterGui"
+killCounterGui.Parent = playerGui
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "StatsFrame"
-mainFrame.Size = UDim2.new(0, 280, 0, 160)
-mainFrame.Position = UDim2.new(0.5, -140, 0.1, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-mainFrame.BackgroundTransparency = 0.1
-mainFrame.BorderSizePixel = 0
-mainFrame.Parent = screenGui
+-- Create TextLabel
+local killCounterLabel = Instance.new("TextLabel")
+killCounterLabel.Name = "KillCounterLabel"
+killCounterLabel.Size = UDim2.new(0, 150, 0, 50)
+killCounterLabel.Position = UDim2.new(0, 200, 0, 100) -- Adjust position as needed
+killCounterLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+killCounterLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+killCounterLabel.TextScaled = true
+killCounterLabel.Text = "Kills: 0"
+killCounterLabel.Parent = killCounterGui
 
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 8)
-uiCorner.Parent = mainFrame
+-- Initialize kill count
+local killCount = 0
 
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Thickness = 2
-uiStroke.Color = Color3.fromRGB(255, 255, 255)
-uiStroke.Transparency = 0.3
-uiStroke.Parent = mainFrame
-
--- Title
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0, 40)
-titleLabel.Position = UDim2.new(0, 0, 0, 8)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "OG_Beast"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextScaled = true
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Parent = mainFrame
-
--- Strength (you can update this dynamically if needed)
-local strengthLabel = Instance.new("TextLabel")
-strengthLabel.Size = UDim2.new(1, 0, 0, 40)
-strengthLabel.Position = UDim2.new(0, 0, 0, 50)
-strengthLabel.BackgroundTransparency = 1
-strengthLabel.Text = "228"
-strengthLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-strengthLabel.TextScaled = true
-strengthLabel.Font = Enum.Font.GothamBold
-strengthLabel.Parent = mainFrame
-
--- Kills Counter
-local killsLabel = Instance.new("TextLabel")
-killsLabel.Size = UDim2.new(1, 0, 0, 40)
-killsLabel.Position = UDim2.new(0, 0, 0, 95)
-killsLabel.BackgroundTransparency = 1
-killsLabel.Text = "Kills: 0"
-killsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-killsLabel.TextScaled = true
-killsLabel.Font = Enum.Font.GothamSemibold
-killsLabel.Parent = mainFrame
-
--- Green accent
-local greenBar = Instance.new("Frame")
-greenBar.Size = UDim2.new(1, 0, 0, 6)
-greenBar.Position = UDim2.new(0, 0, 1, -6)
-greenBar.BackgroundColor3 = Color3.fromRGB(0, 255, 80)
-greenBar.BorderSizePixel = 0
-greenBar.Parent = mainFrame
-
-local greenCorner = Instance.new("UICorner")
-greenCorner.CornerRadius = UDim.new(0, 8)
-greenCorner.Parent = greenBar
-
--- ==================== KILL COUNTER LOGIC ====================
-local kills = 0
-local lastKilled = nil
-
-local function updateKills()
-    killsLabel.Text = "Kills: " .. kills
+-- Function to update the kill count display
+local function updateKillCount()
+    killCounterLabel.Text = "Kills: " .. tostring(killCount)
 end
 
-local function onCharacterAdded(char)
-    local humanoid = char:WaitForChild("Humanoid")
-    humanoid.Died:Connect(function()
-        local creator = humanoid:FindFirstChild("creator") or humanoid:FindFirstChild("Creator")
-        if creator and creator.Value == player then
-            if lastKilled ~= creator.Value then
-                kills += 1
-                updateKills()
-                lastKilled = creator.Value
-            end
-        end
-    end)
-end
+-- Example: Connect to a remote event or game logic that detects kills
+-- Assuming there's a RemoteEvent named "PlayerKilled" in ReplicatedStorage
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local killEvent = replicatedStorage:WaitForChild("PlayerKilled")
 
--- Connect for current + future characters
-if player.Character then
-    onCharacterAdded(player.Character)
-end
-player.CharacterAdded:Connect(onCharacterAdded)
-
--- Listen to other players
-for _, plr in ipairs(Players:GetPlayers()) do
-    if plr ~= player and plr.Character then
-        onCharacterAdded(plr.Character)
-    end
-end
-
-Players.PlayerAdded:Connect(function(plr)
-    if plr.Character then
-        onCharacterAdded(plr.Character)
-    end
-    plr.CharacterAdded:Connect(onCharacterAdded)
+killEvent.OnClientEvent:Connect(function()
+    killCount = killCount + 1
+    updateKillCount()
 end)
+
+-- Adjust the position of the GUI to be under gems and strength UI
+-- You may need to tweak the Position property based on your game's UI layout
 
 print("OG_Beast Kill Counter Loaded!")
