@@ -14,6 +14,7 @@ local removePunchAnim = true
 local playerWhitelist = {} -- UserId based
 
 -- ====================== GUI ======================
+
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "InvincibleKillCounter"
 screenGui.ResetOnSpawn = false
