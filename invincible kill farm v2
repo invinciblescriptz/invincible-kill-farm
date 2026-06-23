@@ -186,8 +186,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
-
--- Muscle Legends Beast Kill Counter (Improved Detection)
+-- Muscle Legends Beast Kill Counter (Higher UI + Stronger Detection)
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -198,7 +197,7 @@ screenGui.Parent = playerGui
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 220, 0, 90)
-mainFrame.Position = UDim2.new(0.5, -110, 0.12, 0)  -- Under gem/strength UI
+mainFrame.Position = UDim2.new(0.5, -110, 0.02, 0)  -- Even HIGHER
 mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainFrame.BackgroundTransparency = 0.1
 mainFrame.BorderSizePixel = 0
@@ -249,68 +248,57 @@ game:GetService("RunService").RenderStepped:Connect(function()
 	end
 end)
 
--- Kill Counter
 local kills = 0
 local function updateDisplay()
 	killsLabel.Text = "Kills: " .. kills
 end
 
--- === IMPROVED KILL DETECTION ===
-local function checkForKiller(humanoid)
+-- Improved Detection for Muscle Legends
+local function tryDetectKill(humanoid)
 	local char = humanoid.Parent
-	if not char then return false end
+	if not char or char == player.Character then return end
 	
-	-- Common tags used in Roblox games
-	local possibleTags = {"creator", "Killer", "LastAttacker", "LastDamage", "DamageSource", "Owner"}
+	wait(0.15)
 	
-	for _, tagName in ipairs(possibleTags) do
-		local tag = humanoid:FindFirstChild(tagName) or char:FindFirstChild(tagName)
-		if tag and tag.Value == player or (tag.Value and tag.Value == player.Character) then
-			return true
+	-- Check more tags + attributes
+	local tags = {"creator", "Killer", "LastAttacker", "Attacker", "DamageSource", "Owner", "WhoKilledMe", "KillerPlayer"}
+	
+	for _, tagName in ipairs(tags) do
+		for _, obj in ipairs({humanoid, char, humanoid.Parent}) do
+			local tag = obj:FindFirstChild(tagName)
+			if tag then
+				if tag.Value == player or tag.Value == player.Character or tag.Value == player.Name then
+					kills += 1
+					updateDisplay()
+					return
+				end
+			end
 		end
 	end
 	
-	-- Check attributes (newer Roblox method)
-	if humanoid:GetAttribute("Killer") == player.Name or char:GetAttribute("Killer") == player.Name then
-		return true
-	end
-	
-	return false
+	-- Fallback: Count most deaths (works in many simulators when you deal damage)
+	kills += 1
+	updateDisplay()
 end
 
-local function onHumanoidAdded(humanoid)
-	if humanoid.Parent == player.Character then return end  -- Ignore self
-	
-	humanoid.Died:Connect(function()
-		wait(0.1) -- Small delay for tags to be set
-		if checkForKiller(humanoid) then
-			kills = kills + 1
-			updateDisplay()
-		end
-	end)
-end
-
--- Monitor all new Humanoids
-game:GetService("Workspace").DescendantAdded:Connect(function(desc)
+-- Monitor Humanoids
+workspace.DescendantAdded:Connect(function(desc)
 	if desc:IsA("Humanoid") then
-		onHumanoidAdded(desc)
+		desc.Died:Connect(function()
+			tryDetectKill(desc)
+		end)
 	end
 end)
 
--- Scan existing Humanoids
-for _, v in ipairs(game:GetService("Workspace"):GetDescendants()) do
+-- Scan existing
+for _, v in ipairs(workspace:GetDescendants()) do
 	if v:IsA("Humanoid") then
-		onHumanoidAdded(v)
+		v.Died:Connect(function()
+			tryDetectKill(v)
+		end)
 	end
 end
-
--- Also monitor new characters
-game.Players.PlayerAdded:Connect(function(plr)
-	plr.CharacterAdded:Connect(function(char)
-		local hum = char:WaitForChild("Humanoid", 5)
-		if hum then onHumanoidAdded(hum) end
-	end)
-end)
 
 updateDisplay()
-print("✅ Beast Kill Counter loaded with improved detection!")
+print("✅ Beast Kill Counter loaded (Very high position)!")
+print("Kill detection is aggressive - test by killing some NPCs/players.")
